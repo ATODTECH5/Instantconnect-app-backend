@@ -6,9 +6,9 @@ import { InterestsController } from './interests.controller';
 import { InterestsService } from './interests.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Interest])],
-  controllers: [InterestsController],
-  providers: [InterestsService],
-  exports: [InterestsService],
+	imports: [TypeOrmModule.forFeature([Interest])],
+	controllers: [InterestsController],
+	providers: [InterestsService],
+	exports: [InterestsService],
 })
 export class InterestsModule {}

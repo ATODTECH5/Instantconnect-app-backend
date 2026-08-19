@@ -1,15 +1,20 @@
+import { ApiProperty } from '@nestjs/swagger';
+
 import type { Interest } from '../entities/interest.entity';
 
 export class InterestResponseDto {
-  id: string;
-  label: string;
+	@ApiProperty({ example: 'talent' })
+	id: string;
 
-  constructor(interest: Interest) {
-    this.id = interest.id;
-    this.label = interest.label;
-  }
+	@ApiProperty({ example: 'Talent' })
+	label: string;
 
-  static fromMany(interests: Interest[]): InterestResponseDto[] {
-    return interests.map((interest) => new InterestResponseDto(interest));
-  }
+	constructor(interest: Interest) {
+		this.id = interest.id;
+		this.label = interest.label;
+	}
+
+	static fromMany(interests: Interest[]): InterestResponseDto[] {
+		return interests.map((interest) => new InterestResponseDto(interest));
+	}
 }

@@ -4,15 +4,15 @@
  * {@link MailModule}; nothing outside this directory changes.
  */
 export abstract class Mailer {
-  abstract sendEmailVerificationCode(
-    to: string,
-    firstName: string,
-    code: string,
-  ): Promise<void>;
+	abstract sendEmailVerificationCode(
+		to: string,
+		firstName: string,
+		code: string,
+	): Promise<void>;
 
-  abstract sendPasswordResetCode(
-    to: string,
-    firstName: string,
-    code: string,
-  ): Promise<void>;
+	abstract sendPasswordResetCode(
+		to: string,
+		firstName: string,
+		code: string,
+	): Promise<void>;
 }

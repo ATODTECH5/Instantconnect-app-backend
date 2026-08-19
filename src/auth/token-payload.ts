@@ -1,9 +1,9 @@
 import type { UserRole } from '../users/entities/user-role.enum';
 
 export type AccessTokenPayload = {
-  sub: string;
-  email: string;
-  role: UserRole;
+	sub: string;
+	email: string;
+	role: UserRole;
 };
 
 /**
@@ -11,12 +11,12 @@ export type AccessTokenPayload = {
  * reset grant is expected, and vice versa.
  */
 export type PasswordResetPayload = {
-  sub: string;
-  codeId: string;
+	sub: string;
+	codeId: string;
 };
 
 export type SessionContext = {
-  keepSignedIn: boolean;
-  userAgent: string | null;
-  ipAddress: string | null;
+	keepSignedIn: boolean;
+	userAgent: string | null;
+	ipAddress: string | null;
 };

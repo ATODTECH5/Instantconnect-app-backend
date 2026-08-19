@@ -14,15 +14,15 @@ import type { AccessTokenPayload } from '../token-payload';
  */
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(@Inject(authConfig.KEY) config: ConfigType<typeof authConfig>) {
-    super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-      ignoreExpiration: false,
-      secretOrKey: config.accessSecret,
-    });
-  }
+	constructor(@Inject(authConfig.KEY) config: ConfigType<typeof authConfig>) {
+		super({
+			jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+			ignoreExpiration: false,
+			secretOrKey: config.accessSecret,
+		});
+	}
 
-  validate(payload: AccessTokenPayload): AuthenticatedUser {
-    return { id: payload.sub, email: payload.email, role: payload.role };
-  }
+	validate(payload: AccessTokenPayload): AuthenticatedUser {
+		return { id: payload.sub, email: payload.email, role: payload.role };
+	}
 }

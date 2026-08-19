@@ -9,8 +9,8 @@ import { buildDataSourceOptions } from './data-source-options';
  * the CLI always runs against TypeScript sources, never against dist.
  */
 export default new DataSource(
-  buildDataSourceOptions(databaseConfig(), {
-    entities: ['src/**/*.entity.ts'],
-    migrations: ['src/database/migrations/*.ts'],
-  }),
+	buildDataSourceOptions(databaseConfig(), {
+		entities: ['src/**/*.entity.ts'],
+		migrations: ['src/database/migrations/*.ts'],
+	}),
 );

@@ -16,20 +16,20 @@ import { TokensService } from './tokens.service';
 import { VerificationService } from './verification.service';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([RefreshToken, VerificationCode]),
-    PassportModule,
-    JwtModule.registerAsync({
-      inject: [authConfig.KEY],
-      useFactory: (config: ConfigType<typeof authConfig>) => ({
-        secret: config.accessSecret,
-        signOptions: { expiresIn: config.accessTtl },
-      }),
-    }),
-    UsersModule,
-    MailModule,
-  ],
-  controllers: [AuthController],
-  providers: [AuthService, TokensService, VerificationService, JwtStrategy],
+	imports: [
+		TypeOrmModule.forFeature([RefreshToken, VerificationCode]),
+		PassportModule,
+		JwtModule.registerAsync({
+			inject: [authConfig.KEY],
+			useFactory: (config: ConfigType<typeof authConfig>) => ({
+				secret: config.accessSecret,
+				signOptions: { expiresIn: config.accessTtl },
+			}),
+		}),
+		UsersModule,
+		MailModule,
+	],
+	controllers: [AuthController],
+	providers: [AuthService, TokensService, VerificationService, JwtStrategy],
 })
 export class AuthModule {}

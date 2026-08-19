@@ -7,15 +7,15 @@ import { Column, Entity, PrimaryColumn } from 'typeorm';
  */
 @Entity('interests')
 export class Interest {
-  @PrimaryColumn({ length: 32 })
-  id: string;
+	@PrimaryColumn({ length: 32 })
+	id: string;
 
-  @Column({ length: 64 })
-  label: string;
+	@Column({ length: 64 })
+	label: string;
 
-  @Column({ type: 'int', default: 0 })
-  sortOrder: number;
+	@Column({ type: 'int', default: 0 })
+	sortOrder: number;
 
-  @Column({ default: true })
-  isActive: boolean;
+	@Column({ default: true })
+	isActive: boolean;
 }

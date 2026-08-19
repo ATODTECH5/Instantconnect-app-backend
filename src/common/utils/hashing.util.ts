@@ -7,10 +7,10 @@ import { createHash, randomBytes, randomInt } from 'node:crypto';
  * sign in without buying much against an offline attacker.
  */
 const ARGON2_OPTIONS: argon2.HashOptions = {
-  type: argon2.argon2id,
-  memoryCost: 19_456,
-  timeCost: 2,
-  parallelism: 1,
+	type: argon2.argon2id,
+	memoryCost: 19_456,
+	timeCost: 2,
+	parallelism: 1,
 };
 
 /**
@@ -18,43 +18,43 @@ const ARGON2_OPTIONS: argon2.HashOptions = {
  * costs the same wall clock time as a wrong password and cannot be told apart.
  */
 const DUMMY_HASH =
-  '$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$Iq4ZQtBqRJPQjMYCPY0AsQ6nOFYWMKKtSjqDDMCXKmM';
+	'$argon2id$v=19$m=19456,t=2,p=1$c29tZXNhbHRzb21lc2FsdA$Iq4ZQtBqRJPQjMYCPY0AsQ6nOFYWMKKtSjqDDMCXKmM';
 
 export const hashSecret = (plain: string): Promise<string> =>
-  argon2.hash(plain, ARGON2_OPTIONS);
+	argon2.hash(plain, ARGON2_OPTIONS);
 
 export async function verifySecret(
-  hash: string | null,
-  plain: string,
+	hash: string | null,
+	plain: string,
 ): Promise<boolean> {
-  try {
-    return await argon2.verify(hash ?? DUMMY_HASH, plain);
-  } catch {
-    return false;
-  }
+	try {
+		return await argon2.verify(hash ?? DUMMY_HASH, plain);
+	} catch {
+		return false;
+	}
 }
 
 /** Burns the same work as a real verification without revealing a decision. */
 export const burnVerification = (plain: string): Promise<boolean> =>
-  verifySecret(DUMMY_HASH, plain);
+	verifySecret(DUMMY_HASH, plain);
 
 /**
  * SHA-256 is deliberate for high entropy tokens: there is nothing to brute
  * force in 256 random bits, and a fast digest is what allows lookup by hash.
  */
 export const digestToken = (token: string): string =>
-  createHash('sha256').update(token).digest('hex');
+	createHash('sha256').update(token).digest('hex');
 
 export const generateOpaqueToken = (): string =>
-  randomBytes(32).toString('base64url');
+	randomBytes(32).toString('base64url');
 
 /** `randomInt` keeps the digits uniform; `Math.random` would not. */
 export function generateNumericCode(length: number): string {
-  let code = '';
+	let code = '';
 
-  for (let index = 0; index < length; index += 1) {
-    code += randomInt(0, 10).toString();
-  }
+	for (let index = 0; index < length; index += 1) {
+		code += randomInt(0, 10).toString();
+	}
 
-  return code;
+	return code;
 }

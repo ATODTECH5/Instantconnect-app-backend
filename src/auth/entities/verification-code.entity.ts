@@ -12,28 +12,28 @@ import { VerificationPurpose } from './verification-purpose.enum';
 @Entity('verification_codes')
 @Index('IDX_verification_codes_userId_purpose', ['userId', 'purpose'])
 export class VerificationCode extends BaseEntity {
-  @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: false })
-  @JoinColumn({
-    name: 'userId',
-    foreignKeyConstraintName: 'FK_verification_codes_userId',
-  })
-  user: User;
+	@ManyToOne(() => User, { onDelete: 'CASCADE', nullable: false })
+	@JoinColumn({
+		name: 'userId',
+		foreignKeyConstraintName: 'FK_verification_codes_userId',
+	})
+	user: User;
 
-  @Column({ type: 'uuid' })
-  userId: string;
+	@Column({ type: 'uuid' })
+	userId: string;
 
-  @Column({ type: 'enum', enum: VerificationPurpose })
-  purpose: VerificationPurpose;
+	@Column({ type: 'enum', enum: VerificationPurpose })
+	purpose: VerificationPurpose;
 
-  @Column({ length: 255 })
-  codeHash: string;
+	@Column({ length: 255 })
+	codeHash: string;
 
-  @Column({ type: 'timestamptz' })
-  expiresAt: Date;
+	@Column({ type: 'timestamptz' })
+	expiresAt: Date;
 
-  @Column({ type: 'timestamptz', nullable: true })
-  consumedAt: Date | null;
+	@Column({ type: 'timestamptz', nullable: true })
+	consumedAt: Date | null;
 
-  @Column({ type: 'int', default: 0 })
-  attempts: number;
+	@Column({ type: 'int', default: 0 })
+	attempts: number;
 }

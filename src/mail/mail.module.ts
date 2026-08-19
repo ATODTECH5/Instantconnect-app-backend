@@ -4,7 +4,7 @@ import { LoggerMailer } from './logger-mailer.service';
 import { Mailer } from './mailer';
 
 @Module({
-  providers: [{ provide: Mailer, useClass: LoggerMailer }],
-  exports: [Mailer],
+	providers: [{ provide: Mailer, useClass: LoggerMailer }],
+	exports: [Mailer],
 })
 export class MailModule {}

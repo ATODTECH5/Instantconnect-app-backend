@@ -6,14 +6,14 @@ import { databaseConfig } from '../config/configuration';
 import { buildDataSourceOptions } from './data-source-options';
 
 @Module({
-  imports: [
-    TypeOrmModule.forRootAsync({
-      inject: [databaseConfig.KEY],
-      useFactory: (config: ConfigType<typeof databaseConfig>) => ({
-        ...buildDataSourceOptions(config),
-        autoLoadEntities: true,
-      }),
-    }),
-  ],
+	imports: [
+		TypeOrmModule.forRootAsync({
+			inject: [databaseConfig.KEY],
+			useFactory: (config: ConfigType<typeof databaseConfig>) => ({
+				...buildDataSourceOptions(config),
+				autoLoadEntities: true,
+			}),
+		}),
+	],
 })
 export class DatabaseModule {}
