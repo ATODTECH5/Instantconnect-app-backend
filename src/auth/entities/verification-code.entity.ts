@@ -5,7 +5,7 @@ import { User } from '../../users/entities/user.entity';
 import { VerificationPurpose } from './verification-purpose.enum';
 
 /**
- * A six digit code has too little entropy to survive a database leak behind a
+ * A four digit code has too little entropy to survive a database leak behind a
  * fast hash, so this one is hashed with argon2 like a password. That rules out
  * lookup by hash, which is why every read is scoped by user and purpose.
  */

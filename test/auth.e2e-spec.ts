@@ -7,12 +7,6 @@ import type { App } from 'supertest/types';
 
 import { AppModule } from './../src/app.module';
 
-/**
- * These hit a real Postgres, because the behaviour worth testing here is the
- * schema's: partial unique indexes, enum columns and cascades cannot be faked.
- * Point DATABASE_URL at a scratch database (a Neon branch works well) and run
- * migrations first; without it the suite skips rather than failing the build.
- */
 const describeWithDatabase = process.env.DATABASE_URL
 	? describe
 	: describe.skip;
@@ -39,9 +33,6 @@ describeWithDatabase('Auth (e2e)', () => {
 	const createdEmails: string[] = [];
 
 	beforeAll(async () => {
-		// Throttling stays on: overrideGuard cannot reach a guard registered under
-		// the APP_GUARD token, and running against the real limits is the honest
-		// test anyway. Keep the suite's request count well under them.
 		const moduleFixture = await Test.createTestingModule({
 			imports: [AppModule],
 		}).compile();

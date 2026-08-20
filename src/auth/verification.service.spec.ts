@@ -83,10 +83,10 @@ describe('VerificationService', () => {
 			);
 		});
 
-		it('returns a six digit code', async () => {
+		it('returns a four digit code', async () => {
 			await expect(
 				service.issue(USER_ID, VerificationPurpose.EmailVerification),
-			).resolves.toMatch(/^\d{6}$/);
+			).resolves.toMatch(/^\d{4}$/);
 		});
 
 		it('retires any outstanding code first, so a resend leaves only one valid', async () => {

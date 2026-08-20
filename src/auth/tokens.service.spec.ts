@@ -40,7 +40,6 @@ const buildStored = (overrides: Partial<RefreshToken> = {}): RefreshToken =>
 		...overrides,
 	}) as RefreshToken;
 
-/** Names what the service passes to the repository, so call args stay typed. */
 type SavedTokens = [RefreshToken][];
 
 type RepositoryMock = {

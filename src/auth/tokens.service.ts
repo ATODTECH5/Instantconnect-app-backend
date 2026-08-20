@@ -40,11 +40,6 @@ export class TokensService {
 		return this.issue(user, randomUUID(), context);
 	}
 
-	/**
-	 * Rotates a refresh token. A token that was already rotated away means the
-	 * chain leaked, so the entire family is revoked: the legitimate device is
-	 * signed out too, which is the correct outcome once a copy is loose.
-	 */
 	async rotate(
 		rawToken: string,
 		context: SessionContext,

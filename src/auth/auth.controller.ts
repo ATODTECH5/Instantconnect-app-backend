@@ -31,16 +31,6 @@ import { AuthService } from './auth.service';
 import { Session } from './session-context.decorator';
 import type { SessionContext } from './token-payload';
 
-/**
- * Credential guessing and mail flooding are the threat here, but the limits are
- * per IP and most Nigerian mobile traffic arrives through carrier NAT, so a
- * single address can legitimately front many users. These are set loose enough
- * not to lock out a shared IP; per account limits are the tighter control and
- * belong on the account, not here.
- *
- * Sending a code costs real money and lands in someone's inbox, so those stay
- * tight regardless.
- */
 const CREDENTIAL_THROTTLE = { default: { limit: 20, ttl: 60_000 } };
 const CODE_THROTTLE = { default: { limit: 5, ttl: 300_000 } };
 
@@ -55,7 +45,7 @@ export class AuthController {
 	@ApiOperation({
 		summary: 'Create an account',
 		description:
-			'Emails a 6 digit code. The account stays unusable until it is verified.',
+			'Emails a 4 digit code. The account stays unusable until it is verified.',
 	})
 	@ApiCreatedResponse({ type: RegistrationResponseDto })
 	@ApiConflictResponse({

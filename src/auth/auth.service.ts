@@ -54,11 +54,6 @@ export class AuthService {
 		private readonly config: ConfigType<typeof authConfig>,
 	) {}
 
-	/**
-	 * Registration cannot hide whether an address is taken without letting two
-	 * people claim the same one, so it answers honestly here. Every other flow
-	 * that takes an email stays silent about it.
-	 */
 	async register(dto: RegisterDto): Promise<RegistrationResponseDto> {
 		const phone = toE164Nigerian(dto.phone);
 
@@ -123,7 +118,6 @@ export class AuthService {
 		);
 	}
 
-	/** Silent about unknown or already verified addresses, to stay unusable as an oracle. */
 	async resendVerificationCode(dto: EmailDto): Promise<void> {
 		const user = await this.users.findByEmail(dto.email);
 
@@ -224,11 +218,6 @@ export class AuthService {
 		});
 	}
 
-	/**
-	 * Consuming the grant, changing the secret and cutting existing sessions have
-	 * to land together: a partial apply would either leave the grant replayable
-	 * or leave a stolen session alive against the new password.
-	 */
 	async resetPassword(dto: ResetPasswordDto): Promise<void> {
 		const payload = await this.verifyResetGrant(dto.resetToken);
 		const passwordHash = await hashSecret(dto.password);

@@ -50,7 +50,11 @@ export const authConfig = registerAs('auth', () => {
 	};
 });
 
-export const mailConfig = registerAs('mail', () => ({ from: env().MAIL_FROM }));
+export const mailConfig = registerAs('mail', () => {
+	const e = env();
+
+	return { from: e.MAIL_FROM, resendApiKey: e.RESEND_API_KEY };
+});
 
 export const throttleConfig = registerAs('throttle', () => {
 	const e = env();

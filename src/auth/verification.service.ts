@@ -18,7 +18,7 @@ import { authConfig } from '../config/configuration';
 import { VerificationCode } from './entities/verification-code.entity';
 import { VerificationPurpose } from './entities/verification-purpose.enum';
 
-const CODE_LENGTH = 6;
+const CODE_LENGTH = 4;
 
 @Injectable()
 export class VerificationService {

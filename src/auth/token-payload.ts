@@ -6,10 +6,6 @@ export type AccessTokenPayload = {
 	role: UserRole;
 };
 
-/**
- * Signed with its own secret so an access token can never be presented where a
- * reset grant is expected, and vice versa.
- */
 export type PasswordResetPayload = {
 	sub: string;
 	codeId: string;

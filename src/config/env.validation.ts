@@ -8,6 +8,16 @@ const booleanFromString = z
 	.enum(['true', 'false'])
 	.transform((value) => value === 'true');
 
+/**
+ * `KEY=` in a .env file arrives as an empty string, which is how people write
+ * "not set". Treated as absent so an unfilled placeholder does not fail the boot.
+ */
+const optionalSecret = z.preprocess(
+	(value) =>
+		typeof value === 'string' && value.trim() === '' ? undefined : value,
+	z.string().min(1).optional(),
+);
+
 const commaSeparated = z.string().transform((value) =>
 	value
 		.split(',')
@@ -62,9 +72,18 @@ export const envSchema = z.object({
 		.positive()
 		.default(5),
 
-	MAIL_FROM: z
-		.string()
-		.default('Instant Connect <no-reply@instantconnect.app>'),
+	/**
+	 * Absent means no provider is bound and codes go to the log instead, which is
+	 * the development default. Setting it is what switches real delivery on.
+	 */
+	RESEND_API_KEY: optionalSecret,
+
+	/**
+	 * Must be an address on a domain verified with the provider. Resend's shared
+	 * `onboarding@resend.dev` sender works without a domain, but only delivers to
+	 * the address that owns the Resend account.
+	 */
+	MAIL_FROM: z.string().default('Instant Connect <onboarding@resend.dev>'),
 
 	THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 	THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),

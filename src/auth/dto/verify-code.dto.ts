@@ -10,11 +10,11 @@ export class VerifyCodeDto {
 
 	@ApiProperty({
 		description:
-			'The 6 digits from the email. Issuing a new code retires the previous one.',
-		example: '433200',
-		pattern: '^\\d{6}$',
+			'The 4 digits from the email. Issuing a new code retires the previous one.',
+		example: '4332',
+		pattern: '^\\d{4}$',
 	})
 	@IsString()
-	@Matches(/^\d{6}$/, { message: 'Enter the 6 digit code' })
+	@Matches(/^\d{4}$/, { message: 'Enter the 4 digit code' })
 	code: string;
 }
