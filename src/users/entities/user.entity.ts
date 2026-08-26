@@ -14,10 +14,6 @@ import { Interest } from '../../interests/entities/interest.entity';
 import { UserRole } from './user-role.enum';
 import { UserStatus } from './user-status.enum';
 
-/**
- * Uniqueness is scoped to live rows so that deleting an account frees its email
- * and phone for re-registration instead of permanently reserving them.
- */
 @Entity('users')
 @Index('UQ_users_email_active', ['email'], {
 	unique: true,
@@ -29,59 +25,51 @@ import { UserStatus } from './user-status.enum';
 })
 export class User extends BaseEntity {
 	@Column({ length: 80 })
-	fullName: string;
+	fullName!: string;
 
-	/** Always stored lower cased; normalise through `normaliseEmail` on the way in. */
 	@Column({ length: 255 })
-	email: string;
+	email!: string;
 
-	/** E.164, as produced by the client's `toE164`. */
 	@Column({ length: 20 })
-	phone: string;
+	phone!: string;
 
 	/**
 	 * Null for accounts that only ever signed in through a federated provider.
 	 * Never selected by default, so it cannot leak through an unguarded find.
 	 */
 	@Column({ type: 'varchar', length: 255, nullable: true, select: false })
-	passwordHash: string | null;
+	passwordHash!: string | null;
 
 	@Column({ type: 'enum', enum: UserRole, default: UserRole.User })
-	role: UserRole;
+	role!: UserRole;
 
 	@Column({
 		type: 'enum',
 		enum: UserStatus,
 		default: UserStatus.PendingVerification,
 	})
-	status: UserStatus;
+	status!: UserStatus;
 
 	@Column({ type: 'timestamptz', nullable: true })
-	emailVerifiedAt: Date | null;
+	emailVerifiedAt!: Date | null;
 
-	/** Records consent for the terms the account was created under. */
 	@Column({ type: 'timestamptz' })
-	termsAcceptedAt: Date;
-
-	/**
-	 * The PIN itself never reaches the server: it lives in the device keychain
-	 * and gates local access to the stored refresh token. This flag only tells
-	 * the client whether onboarding's PIN step is already done.
-	 */
-	@Column({ default: false })
-	pinEnabled: boolean;
+	termsAcceptedAt!: Date;
 
 	@Column({ default: false })
-	biometricsEnabled: boolean;
+	pinEnabled!: boolean;
+
+	@Column({ default: false })
+	biometricsEnabled!: boolean;
 
 	@Column({ type: 'timestamptz', nullable: true })
-	lastSignedInAt: Date | null;
+	lastSignedInAt!: Date | null;
 
 	@DeleteDateColumn({ type: 'timestamptz' })
-	deletedAt: Date | null;
+	deletedAt!: Date | null;
 
 	@OneToMany(() => AuthIdentity, (identity) => identity.user)
-	identities: AuthIdentity[];
+	identities!: AuthIdentity[];
 
 	@ManyToMany(() => Interest)
 	@JoinTable({
@@ -97,7 +85,7 @@ export class User extends BaseEntity {
 			foreignKeyConstraintName: 'FK_user_interests_interestId',
 		},
 	})
-	interests: Interest[];
+	interests!: Interest[];
 
 	get isEmailVerified(): boolean {
 		return this.emailVerifiedAt !== null;

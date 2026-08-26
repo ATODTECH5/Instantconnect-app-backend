@@ -33,8 +33,6 @@ async function bootstrap(): Promise<void> {
 		}),
 	);
 
-	// After the pipes and the versioning, so the document reflects the routes as
-	// they are actually served rather than as they are declared.
 	if (config.swaggerEnabled) setupSwagger(app);
 
 	app.enableShutdownHooks();
