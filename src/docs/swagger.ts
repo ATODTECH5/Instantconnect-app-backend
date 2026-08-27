@@ -60,7 +60,10 @@ export function setupSwagger(app: INestApplication): void {
 		)
 		.addTag('Auth', 'Registration, sign in, tokens and password reset')
 		.addTag('Users', 'The signed in account')
-		.addTag('Interests', 'The categories shown during onboarding')
+		.addTag(
+			'Reference',
+			'Seeded pick lists: categories, occupations, hobbies',
+		)
 		.addTag('Health', 'Liveness probe for load balancers')
 		.build();
 

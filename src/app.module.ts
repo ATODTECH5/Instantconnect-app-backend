@@ -11,8 +11,9 @@ import { LoggingModule } from './common/logging/logging.module';
 import { configurations, throttleConfig } from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
-import { InterestsModule } from './interests/interests.module';
 import { MailModule } from './mail/mail.module';
+import { ReferenceModule } from './reference/reference.module';
+import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -33,7 +34,8 @@ import { UsersModule } from './users/users.module';
 			}),
 		}),
 		MailModule,
-		InterestsModule,
+		StorageModule,
+		ReferenceModule,
 		UsersModule,
 		AuthModule,
 		HealthModule,

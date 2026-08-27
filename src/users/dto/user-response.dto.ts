@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { InterestResponseDto } from '../../interests/dto/interest-response.dto';
+import { LookupResponseDto } from '../../reference/dto/lookup-response.dto';
 import type { User } from '../entities/user.entity';
 import { UserRole } from '../entities/user-role.enum';
 import { UserStatus } from '../entities/user-status.enum';
@@ -62,8 +62,13 @@ export class UserResponseDto {
 	@ApiProperty({ example: false })
 	biometricsEnabled: boolean;
 
-	@ApiProperty({ type: [InterestResponseDto] })
-	interests: InterestResponseDto[];
+	@ApiProperty({
+		type: LookupResponseDto,
+		nullable: true,
+		description:
+			'What the account is here for. Null until onboarding sets it.',
+	})
+	category: LookupResponseDto | null;
 
 	@ApiProperty({ example: '2026-08-19T07:12:03.114Z', format: 'date-time' })
 	createdAt: string;
@@ -79,7 +84,9 @@ export class UserResponseDto {
 		this.isEmailVerified = user.emailVerifiedAt !== null;
 		this.pinEnabled = user.pinEnabled;
 		this.biometricsEnabled = user.biometricsEnabled;
-		this.interests = InterestResponseDto.fromMany(user.interests ?? []);
+		this.category = user.category
+			? new LookupResponseDto(user.category)
+			: null;
 		this.createdAt = user.createdAt.toISOString();
 	}
 }

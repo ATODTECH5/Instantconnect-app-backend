@@ -1,6 +1,8 @@
 import { Body, Controller, Get, Patch, Put } from '@nestjs/common';
 import {
+	ApiBadRequestResponse,
 	ApiBearerAuth,
+	ApiConflictResponse,
 	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
@@ -10,7 +12,9 @@ import {
 
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { UpdateInterestsDto } from './dto/update-interests.dto';
+import { ProfileResponseDto } from './dto/profile-response.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSecurityDto } from './dto/update-security.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
@@ -52,18 +56,52 @@ export class UsersController {
 	}
 
 	@ApiOperation({
-		summary: 'Replace the account interests',
+		summary: 'Set what the account is here for',
 		description:
-			'The list is the whole selection, not an addition. Unknown ids are rejected.',
+			'One category per account. Ids come from GET /reference/categories.',
 	})
 	@ApiOkResponse({ type: UserResponseDto })
-	@Put('me/interests')
-	async replaceInterests(
+	@ApiBadRequestResponse({
+		description: 'UNKNOWN_CATEGORY',
+		type: ApiErrorDto,
+	})
+	@Put('me/category')
+	async setCategory(
 		@CurrentUser('id') userId: string,
-		@Body() dto: UpdateInterestsDto,
+		@Body() dto: UpdateCategoryDto,
 	): Promise<UserResponseDto> {
 		return new UserResponseDto(
-			await this.users.replaceInterests(userId, dto.interestIds),
+			await this.users.setCategory(userId, dto.categoryId),
+		);
+	}
+
+	@ApiOperation({ summary: 'Read the signed in profile' })
+	@ApiOkResponse({ type: ProfileResponseDto })
+	@Get('me/profile')
+	async profile(
+		@CurrentUser('id') userId: string,
+	): Promise<ProfileResponseDto> {
+		return this.users.getProfile(userId);
+	}
+
+	@ApiOperation({
+		summary: 'Update the profile',
+		description:
+			'Only the keys sent are changed. Sending null clears a field; omitting it leaves it alone.',
+	})
+	@ApiOkResponse({ type: ProfileResponseDto })
+	@ApiBadRequestResponse({
+		description: 'UNKNOWN_CATEGORY, UNKNOWN_OCCUPATION or UNKNOWN_HOBBY',
+		type: ApiErrorDto,
+	})
+	@ApiConflictResponse({ description: 'USERNAME_TAKEN', type: ApiErrorDto })
+	@Patch('me/profile')
+	async updateProfile(
+		@CurrentUser('id') userId: string,
+		@Body() dto: UpdateProfileDto,
+	): Promise<ProfileResponseDto> {
+		return this.users.toProfile(
+			await this.users.updateProfile(userId, dto),
 		);
 	}
 }

@@ -10,6 +10,7 @@ import { DataSource } from 'typeorm';
 import { hashSecret, verifySecret } from '../common/utils/hashing.util';
 import { Mailer } from '../mail/mailer';
 import type { User } from '../users/entities/user.entity';
+import { KycStatus } from '../users/entities/kyc-status.enum';
 import { UserRole } from '../users/entities/user-role.enum';
 import { UserStatus } from '../users/entities/user-status.enum';
 import { UsersService } from '../users/users.service';
@@ -48,7 +49,8 @@ const buildUser = (overrides: Partial<User> = {}): User =>
 		emailVerifiedAt: new Date(),
 		pinEnabled: false,
 		biometricsEnabled: false,
-		interests: [],
+		kycStatus: KycStatus.None,
+		category: null,
 		createdAt: new Date(),
 		...overrides,
 	}) as User;

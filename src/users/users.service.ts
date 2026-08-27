@@ -1,9 +1,20 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+	ConflictException,
+	Injectable,
+	NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 
 import { normaliseEmail } from '../common/utils/normalise.util';
-import { InterestsService } from '../interests/interests.service';
+import { ReferenceService } from '../reference/reference.service';
+import { Storage } from '../storage/storage';
+import {
+	ProfilePhotoDto,
+	ProfileResponseDto,
+	ProfileStatsDto,
+} from './dto/profile-response.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSecurityDto } from './dto/update-security.dto';
 import { User } from './entities/user.entity';
 import { UserStatus } from './entities/user-status.enum';
@@ -15,18 +26,37 @@ export type CreateUserData = {
 	passwordHash: string;
 };
 
+const PROFILE_RELATIONS = {
+	category: true,
+	occupation: true,
+	hobbies: true,
+	photos: true,
+} as const;
+
 @Injectable()
 export class UsersService {
 	constructor(
 		@InjectRepository(User)
 		private readonly users: Repository<User>,
-		private readonly interests: InterestsService,
+		private readonly reference: ReferenceService,
+		private readonly storage: Storage,
 	) {}
 
 	findById(id: string): Promise<User | null> {
 		return this.users.findOne({
 			where: { id },
-			relations: { interests: true },
+			relations: PROFILE_RELATIONS,
+		});
+	}
+
+	/**
+	 * Runs on every token rotation, so it skips the profile relations that
+	 * {@link findById} joins. The payload only carries id, email and role.
+	 */
+	findByIdForTokens(id: string): Promise<User | null> {
+		return this.users.findOne({
+			where: { id },
+			select: { id: true, email: true, role: true },
 		});
 	}
 
@@ -91,15 +121,106 @@ export class UsersService {
 		return this.getByIdOrFail(userId);
 	}
 
-	async replaceInterests(
+	async setCategory(userId: string, categoryId: string): Promise<User> {
+		await this.reference.findCategoryOrFail(categoryId);
+		await this.users.update(userId, { categoryId });
+
+		return this.getByIdOrFail(userId);
+	}
+
+	/**
+	 * Absent keys are left alone and explicit nulls clear the field, so the edit
+	 * screen can send only what the user actually touched.
+	 */
+	async updateProfile(
 		userId: string,
-		interestIds: string[],
+		changes: UpdateProfileDto,
 	): Promise<User> {
 		const user = await this.getByIdOrFail(userId);
 
-		user.interests = await this.interests.resolveActive(interestIds);
+		if (changes.categoryId !== undefined) {
+			await this.reference.findCategoryOrFail(changes.categoryId);
+			user.categoryId = changes.categoryId;
+		}
 
-		return this.users.save(user);
+		if (changes.occupationId !== undefined) {
+			if (changes.occupationId !== null) {
+				await this.reference.findOccupationOrFail(changes.occupationId);
+			}
+
+			user.occupationId = changes.occupationId;
+		}
+
+		if (changes.username !== undefined) {
+			user.username = changes.username
+				? await this.claimUsername(userId, changes.username)
+				: null;
+		}
+
+		if (changes.hobbyIds !== undefined) {
+			user.hobbies = await this.reference.resolveHobbies(
+				changes.hobbyIds,
+			);
+		}
+
+		if (changes.fullName !== undefined) user.fullName = changes.fullName;
+		if (changes.bio !== undefined) user.bio = changes.bio || null;
+		if (changes.locationLabel !== undefined) {
+			user.locationLabel = changes.locationLabel || null;
+		}
+		if (changes.latitude !== undefined) user.latitude = changes.latitude;
+		if (changes.longitude !== undefined) user.longitude = changes.longitude;
+
+		await this.users.save(user);
+
+		return this.getByIdOrFail(userId);
+	}
+
+	async getProfile(userId: string): Promise<ProfileResponseDto> {
+		return this.toProfile(await this.getByIdOrFail(userId));
+	}
+
+	toProfile(user: User): ProfileResponseDto {
+		const photos: ProfilePhotoDto[] = (user.photos ?? []).map((photo) => ({
+			id: photo.id,
+			position: photo.position,
+			thumbnailUrl: this.storage.buildUrl(photo.storageId, 'thumbnail'),
+			url: this.storage.buildUrl(photo.storageId, 'full'),
+		}));
+
+		return new ProfileResponseDto(user, this.buildStats(), photos);
+	}
+
+	/**
+	 * Counts the profile header renders. Connections, events and communities are
+	 * not modelled yet, so they read zero rather than being invented client side.
+	 */
+	private buildStats(): ProfileStatsDto {
+		return { connections: 0, eventsJoined: 0, communities: 0 };
+	}
+
+	/**
+	 * Checked rather than left to the unique index so the client gets
+	 * USERNAME_TAKEN instead of the filter's generic conflict. The index is still
+	 * what makes it safe under a race.
+	 */
+	private async claimUsername(
+		userId: string,
+		username: string,
+	): Promise<string> {
+		const taken = await this.users.findOne({
+			where: { username, id: Not(userId) },
+			select: { id: true },
+		});
+
+		if (taken) {
+			throw new ConflictException({
+				code: 'USERNAME_TAKEN',
+				message: 'That username is already taken.',
+			});
+		}
+
+		return username;
 	}
 
 	async getByIdOrFail(id: string): Promise<User> {

@@ -63,7 +63,7 @@ export class TokensService {
 			throw this.invalidRefreshToken();
 		}
 
-		const user = await this.users.findById(stored.userId);
+		const user = await this.users.findByIdForTokens(stored.userId);
 
 		if (!user) throw this.invalidRefreshToken();
 

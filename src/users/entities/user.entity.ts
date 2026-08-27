@@ -3,14 +3,20 @@ import {
 	DeleteDateColumn,
 	Entity,
 	Index,
+	JoinColumn,
 	JoinTable,
 	ManyToMany,
+	ManyToOne,
 	OneToMany,
 } from 'typeorm';
 
 import { BaseEntity } from '../../common/entities/base.entity';
 import { AuthIdentity } from './auth-identity.entity';
-import { Interest } from '../../interests/entities/interest.entity';
+import { Category } from '../../reference/entities/category.entity';
+import { Hobby } from '../../reference/entities/hobby.entity';
+import { Occupation } from '../../reference/entities/occupation.entity';
+import { KycStatus } from './kyc-status.enum';
+import { UserPhoto } from './user-photo.entity';
 import { UserRole } from './user-role.enum';
 import { UserStatus } from './user-status.enum';
 
@@ -22,6 +28,10 @@ import { UserStatus } from './user-status.enum';
 @Index('UQ_users_phone_active', ['phone'], {
 	unique: true,
 	where: '"deletedAt" IS NULL',
+})
+@Index('UQ_users_username_active', ['username'], {
+	unique: true,
+	where: '"deletedAt" IS NULL AND "username" IS NOT NULL',
 })
 export class User extends BaseEntity {
 	@Column({ length: 80 })
@@ -71,21 +81,68 @@ export class User extends BaseEntity {
 	@OneToMany(() => AuthIdentity, (identity) => identity.user)
 	identities!: AuthIdentity[];
 
-	@ManyToMany(() => Interest)
+	@Column({ type: 'enum', enum: KycStatus, default: KycStatus.None })
+	kycStatus!: KycStatus;
+
+	/** Chosen during onboarding, so it is null for accounts that stopped before it. */
+	@Column({ type: 'varchar', length: 32, nullable: true })
+	categoryId!: string | null;
+
+	@ManyToOne(() => Category, { nullable: true, onDelete: 'SET NULL' })
+	@JoinColumn({
+		name: 'categoryId',
+		foreignKeyConstraintName: 'FK_users_categoryId',
+	})
+	category!: Category | null;
+
+	@Column({ type: 'varchar', length: 30, nullable: true })
+	username!: string | null;
+
+	@Column({ type: 'varchar', length: 300, nullable: true })
+	bio!: string | null;
+
+	@Column({ type: 'varchar', length: 32, nullable: true })
+	occupationId!: string | null;
+
+	@ManyToOne(() => Occupation, { nullable: true, onDelete: 'SET NULL' })
+	@JoinColumn({
+		name: 'occupationId',
+		foreignKeyConstraintName: 'FK_users_occupationId',
+	})
+	occupation!: Occupation | null;
+
+	/** What the profile displays, for example "Ikeja, Lagos". */
+	@Column({ type: 'varchar', length: 120, nullable: true })
+	locationLabel!: string | null;
+
+	/**
+	 * Kept alongside the label because Discover ranks by distance, and
+	 * re-geocoding a free text label per request would not scale.
+	 */
+	@Column({ type: 'double precision', nullable: true })
+	latitude!: number | null;
+
+	@Column({ type: 'double precision', nullable: true })
+	longitude!: number | null;
+
+	@ManyToMany(() => Hobby)
 	@JoinTable({
-		name: 'user_interests',
+		name: 'user_hobbies',
 		joinColumn: {
 			name: 'userId',
 			referencedColumnName: 'id',
-			foreignKeyConstraintName: 'FK_user_interests_userId',
+			foreignKeyConstraintName: 'FK_user_hobbies_userId',
 		},
 		inverseJoinColumn: {
-			name: 'interestId',
+			name: 'hobbyId',
 			referencedColumnName: 'id',
-			foreignKeyConstraintName: 'FK_user_interests_interestId',
+			foreignKeyConstraintName: 'FK_user_hobbies_hobbyId',
 		},
 	})
-	interests!: Interest[];
+	hobbies!: Hobby[];
+
+	@OneToMany(() => UserPhoto, (photo) => photo.user, { cascade: ['remove'] })
+	photos!: UserPhoto[];
 
 	get isEmailVerified(): boolean {
 		return this.emailVerifiedAt !== null;

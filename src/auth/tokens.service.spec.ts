@@ -53,7 +53,7 @@ type RepositoryMock = {
 describe('TokensService', () => {
 	let service: TokensService;
 	let repository: RepositoryMock;
-	let users: { findById: jest.Mock };
+	let users: { findByIdForTokens: jest.Mock };
 
 	beforeEach(async () => {
 		const manager = {
@@ -73,7 +73,7 @@ describe('TokensService', () => {
 			manager,
 		};
 
-		users = { findById: jest.fn().mockResolvedValue(USER) };
+		users = { findByIdForTokens: jest.fn().mockResolvedValue(USER) };
 
 		const moduleRef = await Test.createTestingModule({
 			providers: [
@@ -189,7 +189,7 @@ describe('TokensService', () => {
 
 		it('rejects a token whose owner is gone', async () => {
 			repository.findOne.mockResolvedValue(buildStored());
-			users.findById.mockResolvedValue(null);
+			users.findByIdForTokens.mockResolvedValue(null);
 
 			await expect(service.rotate('orphan', CONTEXT)).rejects.toThrow(
 				UnauthorizedException,

@@ -85,6 +85,16 @@ export const envSchema = z.object({
 	 */
 	MAIL_FROM: z.string().default('Instant Connect <onboarding@resend.dev>'),
 
+	/**
+	 * Absent means uploads are refused with a clear error rather than failing at
+	 * the Cloudinary call. Every other profile endpoint keeps working without it.
+	 */
+	CLOUDINARY_CLOUD_NAME: optionalSecret,
+	CLOUDINARY_API_KEY: optionalSecret,
+	CLOUDINARY_API_SECRET: optionalSecret,
+	/** Upload preset the signed request is bound to, so the app cannot pick its own. */
+	CLOUDINARY_UPLOAD_FOLDER: z.string().default('instant-connect/profiles'),
+
 	THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 	THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
 

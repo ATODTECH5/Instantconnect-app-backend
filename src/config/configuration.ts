@@ -56,6 +56,22 @@ export const mailConfig = registerAs('mail', () => {
 	return { from: e.MAIL_FROM, resendApiKey: e.RESEND_API_KEY };
 });
 
+export const storageConfig = registerAs('storage', () => {
+	const e = env();
+
+	return {
+		cloudName: e.CLOUDINARY_CLOUD_NAME,
+		apiKey: e.CLOUDINARY_API_KEY,
+		apiSecret: e.CLOUDINARY_API_SECRET,
+		uploadFolder: e.CLOUDINARY_UPLOAD_FOLDER,
+		isConfigured: Boolean(
+			e.CLOUDINARY_CLOUD_NAME &&
+			e.CLOUDINARY_API_KEY &&
+			e.CLOUDINARY_API_SECRET,
+		),
+	};
+});
+
 export const throttleConfig = registerAs('throttle', () => {
 	const e = env();
 
@@ -67,5 +83,6 @@ export const configurations = [
 	databaseConfig,
 	authConfig,
 	mailConfig,
+	storageConfig,
 	throttleConfig,
 ];
