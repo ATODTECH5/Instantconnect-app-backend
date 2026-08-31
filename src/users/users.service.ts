@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 
+import type { IsoDate } from '../common/utils/age.util';
 import { normaliseEmail } from '../common/utils/normalise.util';
 import { ReferenceService } from '../reference/reference.service';
 import { Storage } from '../storage/storage';
@@ -24,6 +25,7 @@ export type CreateUserData = {
 	email: string;
 	phone: string;
 	passwordHash: string;
+	dateOfBirth: IsoDate;
 };
 
 const PROFILE_RELATIONS = {
@@ -90,6 +92,7 @@ export class UsersService {
 			email: normaliseEmail(data.email),
 			phone: data.phone,
 			passwordHash: data.passwordHash,
+			dateOfBirth: data.dateOfBirth,
 			termsAcceptedAt: new Date(),
 			status: UserStatus.PendingVerification,
 		});

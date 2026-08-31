@@ -13,6 +13,8 @@ import {
 	StrippedPhone,
 	TrimmedString,
 } from '../../common/decorators/validation.decorators';
+import { MINIMUM_AGE, type IsoDate } from '../../common/utils/age.util';
+import { IsDateOfBirth } from './date-of-birth.decorator';
 import { IsStrongPassword } from './strong-password.decorator';
 
 /** Local 0XXXXXXXXXX or international +234XXXXXXXXXX, matching the client's rule. */
@@ -43,6 +45,14 @@ export class RegisterDto {
 	@StrippedPhone()
 	@Matches(NIGERIAN_PHONE, { message: 'Enter a valid Nigerian phone number' })
 	phone: string;
+
+	@ApiProperty({
+		description: `Calendar date. The account is refused below ${MINIMUM_AGE}, since the app arranges meetups between strangers.`,
+		example: '1998-04-12',
+		format: 'date',
+	})
+	@IsDateOfBirth()
+	dateOfBirth: IsoDate;
 
 	@ApiProperty({
 		description:

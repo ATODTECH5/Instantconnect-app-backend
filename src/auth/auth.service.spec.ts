@@ -31,6 +31,7 @@ const REGISTRATION = {
 	fullName: 'Ada Lovelace',
 	email: 'ada@example.com',
 	phone: '08012345678',
+	dateOfBirth: '1998-04-12',
 	password: 'Password1',
 	termsAccepted: true as const,
 };
@@ -143,6 +144,16 @@ describe('AuthService', () => {
 			});
 
 			expect(users.findByPhone).toHaveBeenCalledWith('+2348012345678');
+		});
+
+		it('carries the date of birth onto the account', async () => {
+			await service.register(REGISTRATION);
+
+			expect(users.create).toHaveBeenCalledWith(
+				expect.objectContaining({
+					dateOfBirth: REGISTRATION.dateOfBirth,
+				}),
+			);
 		});
 
 		it('never stores the password itself', async () => {

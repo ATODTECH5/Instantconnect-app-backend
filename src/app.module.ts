@@ -4,12 +4,14 @@ import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
+import { ConnectionsModule } from './connections/connections.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingModule } from './common/logging/logging.module';
 import { configurations, throttleConfig } from './config/configuration';
 import { DatabaseModule } from './database/database.module';
+import { DiscoveryModule } from './discovery/discovery.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { ReferenceModule } from './reference/reference.module';
@@ -38,6 +40,8 @@ import { UsersModule } from './users/users.module';
 		ReferenceModule,
 		UsersModule,
 		AuthModule,
+		ConnectionsModule,
+		DiscoveryModule,
 		HealthModule,
 	],
 	providers: [

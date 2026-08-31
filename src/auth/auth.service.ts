@@ -76,6 +76,7 @@ export class AuthService {
 			email: dto.email,
 			phone,
 			passwordHash: await hashSecret(dto.password),
+			dateOfBirth: dto.dateOfBirth,
 		});
 
 		await this.sendCode(user, VerificationPurpose.EmailVerification);
