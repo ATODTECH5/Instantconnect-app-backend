@@ -47,4 +47,16 @@ export class DiscoveryQueryDto extends PaginationQueryDto {
 	@IsBoolean()
 	@IsOptional()
 	verifiedOnly: boolean = false;
+
+	@ApiPropertyOptional({
+		description:
+			'Restrict to accounts seen within the online window (5 minutes).',
+		default: false,
+	})
+	@Transform(
+		({ value }: { value: unknown }) => value === true || value === 'true',
+	)
+	@IsBoolean()
+	@IsOptional()
+	onlineOnly: boolean = false;
 }

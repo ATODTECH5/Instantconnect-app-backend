@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigType } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
@@ -14,6 +14,8 @@ import { DatabaseModule } from './database/database.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
+import { PresenceInterceptor } from './presence/presence.interceptor';
+import { PresenceModule } from './presence/presence.module';
 import { ReferenceModule } from './reference/reference.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
@@ -42,6 +44,7 @@ import { UsersModule } from './users/users.module';
 		AuthModule,
 		ConnectionsModule,
 		DiscoveryModule,
+		PresenceModule,
 		HealthModule,
 	],
 	providers: [
@@ -51,6 +54,8 @@ import { UsersModule } from './users/users.module';
 		{ provide: APP_GUARD, useClass: JwtAuthGuard },
 		{ provide: APP_GUARD, useClass: RolesGuard },
 		{ provide: APP_FILTER, useClass: AllExceptionsFilter },
+		// Interceptors run after guards, which is what puts `user` on the request.
+		{ provide: APP_INTERCEPTOR, useClass: PresenceInterceptor },
 	],
 })
 export class AppModule {}

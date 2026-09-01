@@ -83,6 +83,14 @@ export class User extends BaseEntity {
 	@Column({ type: 'timestamptz', nullable: true })
 	lastSignedInAt!: Date | null;
 
+	/**
+	 * Last authenticated request, written at most once per touch interval by
+	 * `PresenceService`. Null for an account that has not been seen since
+	 * presence shipped, which reads as offline.
+	 */
+	@Column({ type: 'timestamptz', nullable: true })
+	lastActiveAt!: Date | null;
+
 	@DeleteDateColumn({ type: 'timestamptz' })
 	deletedAt!: Date | null;
 
