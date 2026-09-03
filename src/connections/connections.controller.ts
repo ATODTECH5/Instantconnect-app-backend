@@ -17,22 +17,20 @@ import {
 	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
-	ApiQuery,
 	ApiTags,
 	ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
-import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { ConnectionsService } from './connections.service';
 import {
 	ConnectionPageDto,
 	ConnectionResponseDto,
 } from './dto/connection-response.dto';
 import { CreateConnectionDto } from './dto/create-connection.dto';
+import { ListConnectionsQueryDto } from './dto/list-connections-query.dto';
 import { RespondConnectionDto } from './dto/respond-connection.dto';
-import { ConnectionStatus } from './entities/connection-status.enum';
 
 @ApiTags('Connections')
 @ApiBearerAuth('access-token')
@@ -64,20 +62,13 @@ export class ConnectionsController {
 	@ApiOperation({
 		summary: 'List the requests and connections the account is party to',
 	})
-	@ApiQuery({
-		name: 'status',
-		enum: ConnectionStatus,
-		required: false,
-		description: 'Omit to return every state.',
-	})
 	@ApiOkResponse({ type: ConnectionPageDto })
 	@Get()
 	async list(
 		@CurrentUser('id') userId: string,
-		@Query() pagination: PaginationQueryDto,
-		@Query('status') status?: ConnectionStatus,
+		@Query() query: ListConnectionsQueryDto,
 	): Promise<ConnectionPageDto> {
-		return this.connections.list(userId, pagination, status);
+		return this.connections.list(userId, query, query.status);
 	}
 
 	@ApiOperation({ summary: 'Accept or decline a request you received' })
