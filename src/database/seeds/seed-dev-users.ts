@@ -6,6 +6,7 @@ import { KycStatus } from '../../users/entities/kyc-status.enum';
 import { User } from '../../users/entities/user.entity';
 import { UserStatus } from '../../users/entities/user-status.enum';
 import dataSource from '../data-source';
+import { seedConversations } from './dev-conversations';
 import { DEV_PASSWORD, SEED_EMAIL_DOMAIN, buildSeedPeople } from './dev-people';
 
 /**
@@ -58,7 +59,7 @@ async function seed(source: DataSource): Promise<void> {
 
 	const users = source.getRepository(User);
 
-	await users.save(
+	const saved = await users.save(
 		people.map((person) =>
 			users.create({
 				fullName: person.fullName,
@@ -91,6 +92,18 @@ async function seed(source: DataSource): Promise<void> {
 	console.log(`Seeded ${people.length} people (${verified} KYC verified).`);
 	console.log(`Sign in as any of them with ${DEV_PASSWORD}.`);
 	console.log(`First account: ${people[0].email}`);
+
+	const chats = await seedConversations(source, saved);
+
+	if (chats.threads === 0) {
+		console.log(
+			'No conversations seeded: register an account by hand first, then re-run.',
+		);
+	} else {
+		console.log(
+			`Opened ${chats.threads} threads across ${chats.humans} account(s) you registered.`,
+		);
+	}
 }
 
 async function run(): Promise<void> {
