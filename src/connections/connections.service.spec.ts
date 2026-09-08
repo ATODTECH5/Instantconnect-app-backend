@@ -7,6 +7,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { ChatService } from '../chat/chat.service';
 import { Storage } from '../storage/storage';
 import { User } from '../users/entities/user.entity';
 import { ConnectionsService } from './connections.service';
@@ -45,6 +46,7 @@ describe('ConnectionsService', () => {
 	let service: ConnectionsService;
 	let connections: Record<string, jest.Mock>;
 	let users: Record<string, jest.Mock>;
+	let chat: { createForConnection: jest.Mock };
 
 	beforeEach(async () => {
 		connections = {
@@ -57,6 +59,7 @@ describe('ConnectionsService', () => {
 		};
 
 		users = { findOne: jest.fn().mockResolvedValue({ id: OTHER }) };
+		chat = { createForConnection: jest.fn().mockResolvedValue(undefined) };
 
 		const moduleRef = await Test.createTestingModule({
 			providers: [
@@ -70,6 +73,7 @@ describe('ConnectionsService', () => {
 					provide: Storage,
 					useValue: { buildUrl: () => 'https://cdn/a' },
 				},
+				{ provide: ChatService, useValue: chat },
 			],
 		}).compile();
 
@@ -160,6 +164,43 @@ describe('ConnectionsService', () => {
 			expect(result.status).toBe(ConnectionStatus.Accepted);
 			expect(result.respondedAt).toBeInstanceOf(Date);
 			expect(result.isOutgoing).toBe(false);
+		});
+
+		it('opens a thread for both parties on accept', async () => {
+			connections.findOne.mockResolvedValue(
+				connection({ requesterId: OTHER, addresseeId: VIEWER }),
+			);
+			connections.save.mockImplementation((value: Connection) =>
+				Promise.resolve(value),
+			);
+
+			await service.respond(
+				VIEWER,
+				CONNECTION_ID,
+				ConnectionStatus.Accepted,
+			);
+
+			expect(chat.createForConnection).toHaveBeenCalledWith(
+				CONNECTION_ID,
+				[OTHER, VIEWER],
+			);
+		});
+
+		it('opens no thread when the request is declined', async () => {
+			connections.findOne.mockResolvedValue(
+				connection({ requesterId: OTHER, addresseeId: VIEWER }),
+			);
+			connections.save.mockImplementation((value: Connection) =>
+				Promise.resolve(value),
+			);
+
+			await service.respond(
+				VIEWER,
+				CONNECTION_ID,
+				ConnectionStatus.Declined,
+			);
+
+			expect(chat.createForConnection).not.toHaveBeenCalled();
 		});
 
 		it('refuses the requester answering their own request', async () => {

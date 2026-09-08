@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
+import { ChatModule } from './chat/chat.module';
 import { ConnectionsModule } from './connections/connections.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
@@ -43,6 +44,7 @@ import { UsersModule } from './users/users.module';
 		UsersModule,
 		AuthModule,
 		ConnectionsModule,
+		ChatModule,
 		DiscoveryModule,
 		PresenceModule,
 		HealthModule,

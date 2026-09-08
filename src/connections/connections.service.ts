@@ -12,6 +12,7 @@ import {
 	PageInfoDto,
 	type PaginationQueryDto,
 } from '../common/dto/pagination.dto';
+import { ChatService } from '../chat/chat.service';
 import { Storage } from '../storage/storage';
 import { AVATAR_POSITION } from '../users/entities/user-photo.entity';
 import { User } from '../users/entities/user.entity';
@@ -38,6 +39,7 @@ export class ConnectionsService {
 		@InjectRepository(User)
 		private readonly users: Repository<User>,
 		private readonly storage: Storage,
+		private readonly chat: ChatService,
 	) {}
 
 	/**
@@ -111,10 +113,19 @@ export class ConnectionsService {
 		connection.status = status;
 		connection.respondedAt = new Date();
 
-		return this.toResponse(
-			await this.connections.save(connection),
-			viewerId,
-		);
+		const saved = await this.connections.save(connection);
+
+		// Accepting is what authorises a thread, so the thread is opened here
+		// rather than on the first message. The chat list can then show a new
+		// connection immediately, which is what the design expects.
+		if (saved.status === ConnectionStatus.Accepted) {
+			await this.chat.createForConnection(saved.id, [
+				saved.requesterId,
+				saved.addresseeId,
+			]);
+		}
+
+		return this.toResponse(saved, viewerId);
 	}
 
 	async list(
