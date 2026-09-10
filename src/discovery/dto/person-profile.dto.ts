@@ -5,7 +5,6 @@ import type { ConnectionState } from '../../connections/connection-state';
 import { LookupResponseDto } from '../../reference/dto/lookup-response.dto';
 import { KycStatus } from '../../users/entities/kyc-status.enum';
 import type { User } from '../../users/entities/user.entity';
-import { isOnline } from '../../presence/online-window';
 
 /**
  * Somebody else's profile as the person detail screen shows it. Deliberately
@@ -75,7 +74,7 @@ export class PersonProfileDto {
 		avatarUrl: string | null,
 		photoUrls: string[],
 		connectionState: ConnectionState,
-		onlineSince: Date,
+		isOnline: boolean,
 	) {
 		this.id = user.id;
 		this.fullName = user.fullName;
@@ -93,7 +92,7 @@ export class PersonProfileDto {
 		this.photoUrls = photoUrls;
 		this.distanceKm = Math.round(distanceMetres / 100) / 10;
 		this.isVerified = user.kycStatus === KycStatus.Verified;
-		this.isOnline = isOnline(user.lastActiveAt, onlineSince);
+		this.isOnline = isOnline;
 		this.connectionState = connectionState;
 	}
 }

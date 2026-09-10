@@ -4,6 +4,8 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
 import { Storage } from '../storage/storage';
+import { PresenceRegistry } from '../presence/presence-registry';
+import { ChatGateway } from './chat.gateway';
 import { ChatService } from './chat.service';
 import { ConversationPreviewDto } from './dto/conversation-response.dto';
 import { ConversationParticipant } from './entities/conversation-participant.entity';
@@ -48,6 +50,7 @@ describe('ChatService', () => {
 	let participants: Record<string, jest.Mock>;
 	let messages: Record<string, jest.Mock>;
 	let manager: Record<string, jest.Mock>;
+	let gateway: { broadcastMessage: jest.Mock; broadcastRead: jest.Mock };
 
 	beforeEach(async () => {
 		conversations = { createQueryBuilder: jest.fn() };
@@ -61,6 +64,8 @@ describe('ChatService', () => {
 			findAndCount: jest.fn().mockResolvedValue([[], 0]),
 			createQueryBuilder: jest.fn(),
 		};
+
+		gateway = { broadcastMessage: jest.fn(), broadcastRead: jest.fn() };
 
 		manager = {
 			create: jest.fn((_entity: unknown, value: unknown) => value),
@@ -86,6 +91,8 @@ describe('ChatService', () => {
 					provide: Storage,
 					useValue: { buildUrl: () => 'https://cdn/a' },
 				},
+				{ provide: ChatGateway, useValue: gateway },
+				{ provide: PresenceRegistry, useValue: new PresenceRegistry() },
 				{
 					provide: DataSource,
 					useValue: {
@@ -155,6 +162,30 @@ describe('ChatService', () => {
 			expect(result.kind).toBe(MessageKind.Text);
 			expect(result.isMine).toBe(true);
 		});
+
+		it('announces the message to the thread once it is stored', async () => {
+			const result = await service.sendMessage(
+				VIEWER,
+				CONVERSATION,
+				'Hello, how are you?',
+			);
+
+			expect(gateway.broadcastMessage).toHaveBeenCalledWith(
+				CONVERSATION,
+				VIEWER,
+				result,
+			);
+		});
+
+		it('does not announce a message that failed to store', async () => {
+			manager.save.mockRejectedValue(new Error('write failed'));
+
+			await expect(
+				service.sendMessage(VIEWER, CONVERSATION, 'hi'),
+			).rejects.toThrow();
+
+			expect(gateway.broadcastMessage).not.toHaveBeenCalled();
+		});
 	});
 
 	describe('listMessages', () => {
@@ -206,6 +237,16 @@ describe('ChatService', () => {
 			expect(participants.update).toHaveBeenCalledWith(
 				{ id: 'party-1' },
 				{ lastReadAt: receipt.lastReadAt },
+			);
+		});
+
+		it('tells the thread, so the other party’s ticks can catch up', async () => {
+			const receipt = await service.markRead(VIEWER, CONVERSATION);
+
+			expect(gateway.broadcastRead).toHaveBeenCalledWith(
+				CONVERSATION,
+				VIEWER,
+				receipt.lastReadAt,
 			);
 		});
 	});

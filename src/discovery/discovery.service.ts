@@ -17,6 +17,7 @@ import { KycStatus } from '../users/entities/kyc-status.enum';
 import { User } from '../users/entities/user.entity';
 import { UserStatus } from '../users/entities/user-status.enum';
 import { onlineSince } from '../presence/online-window';
+import { PresenceRegistry } from '../presence/presence-registry';
 import type { DiscoveryQueryDto } from './dto/discovery-query.dto';
 import { DiscoveryPageDto, NearbyPersonDto } from './dto/nearby-person.dto';
 import { PersonProfileDto } from './dto/person-profile.dto';
@@ -35,6 +36,7 @@ export class DiscoveryService {
 		private readonly photos: Repository<UserPhoto>,
 		private readonly connections: ConnectionsService,
 		private readonly storage: Storage,
+		private readonly presence: PresenceRegistry,
 	) {}
 
 	async findPeople(
@@ -110,7 +112,7 @@ export class DiscoveryService {
 					Number(raw[index].distance_m),
 					avatars.get(user.id) ?? null,
 					states.get(user.id) ?? 'none',
-					since,
+					this.presence.isOnline(user.id, user.lastActiveAt, since),
 				),
 		);
 
@@ -168,7 +170,7 @@ export class DiscoveryService {
 				.filter((photo) => photo.position !== AVATAR_POSITION)
 				.map((photo) => this.storage.buildUrl(photo.storageId, 'full')),
 			states.get(personId) ?? 'none',
-			since,
+			this.presence.isOnline(person.id, person.lastActiveAt, since),
 		);
 	}
 

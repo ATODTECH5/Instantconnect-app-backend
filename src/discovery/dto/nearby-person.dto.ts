@@ -6,7 +6,6 @@ import { LookupResponseDto } from '../../reference/dto/lookup-response.dto';
 import { KycStatus } from '../../users/entities/kyc-status.enum';
 import type { User } from '../../users/entities/user.entity';
 import { ageOn } from '../../common/utils/age.util';
-import { isOnline } from '../../presence/online-window';
 
 export class NearbyPersonDto {
 	@ApiProperty({ format: 'uuid' })
@@ -66,7 +65,7 @@ export class NearbyPersonDto {
 		distanceMetres: number,
 		avatarUrl: string | null,
 		connectionState: ConnectionState,
-		onlineSince: Date,
+		isOnline: boolean,
 	) {
 		this.id = user.id;
 		this.fullName = user.fullName;
@@ -80,7 +79,7 @@ export class NearbyPersonDto {
 		this.avatarUrl = avatarUrl;
 		this.distanceKm = Math.round(distanceMetres / 100) / 10;
 		this.isVerified = user.kycStatus === KycStatus.Verified;
-		this.isOnline = isOnline(user.lastActiveAt, onlineSince);
+		this.isOnline = isOnline;
 		this.connectionState = connectionState;
 	}
 }

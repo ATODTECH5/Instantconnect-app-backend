@@ -1,10 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, Repository } from 'typeorm';
+import { DataSource, In, Not, Repository } from 'typeorm';
 
 import { PageInfoDto } from '../common/dto/pagination.dto';
 import type { PaginationQueryDto } from '../common/dto/pagination.dto';
-import { isOnline, onlineSince } from '../presence/online-window';
+import { onlineSince } from '../presence/online-window';
+import { PresenceRegistry } from '../presence/presence-registry';
+import { ChatGateway } from './chat.gateway';
 import { Storage } from '../storage/storage';
 import { AVATAR_POSITION } from '../users/entities/user-photo.entity';
 import {
@@ -44,6 +46,8 @@ export class ChatService {
 		private readonly messages: Repository<Message>,
 		private readonly storage: Storage,
 		private readonly dataSource: DataSource,
+		private readonly gateway: ChatGateway,
+		private readonly presence: PresenceRegistry,
 	) {}
 
 	/**
@@ -119,16 +123,17 @@ export class ChatService {
 			return [
 				new ConversationResponseDto(
 					row.conversation,
-					party,
+					party.dto,
 					preview
 						? new ConversationPreviewDto(
 								preview,
 								viewerId,
-								party.fullName.split(' ')[0],
+								party.dto.fullName.split(' ')[0],
 							)
 						: null,
 					unread.get(row.conversationId) ?? 0,
 					row.isFavourite,
+					party.lastReadAt,
 				),
 			];
 		});
@@ -147,16 +152,23 @@ export class ChatService {
 	): Promise<MessagePageDto> {
 		await this.membershipOrThrow(viewerId, conversationId);
 
-		const [rows, total] = await this.messages.findAndCount({
-			where: { conversationId },
-			order: { createdAt: 'DESC', id: 'DESC' },
-			take: query.limit,
-			skip: query.offset,
-		});
+		const [[rows, total], other] = await Promise.all([
+			this.messages.findAndCount({
+				where: { conversationId },
+				order: { createdAt: 'DESC', id: 'DESC' },
+				take: query.limit,
+				skip: query.offset,
+			}),
+			this.participants.findOne({
+				where: { conversationId, userId: Not(viewerId) },
+				select: { id: true, lastReadAt: true },
+			}),
+		]);
 
 		return new MessagePageDto(
 			rows.map((row) => this.toMessage(row, viewerId)),
 			new PageInfoDto(total, query),
+			other?.lastReadAt ?? null,
 		);
 	}
 
@@ -190,7 +202,14 @@ export class ChatService {
 			return message;
 		});
 
-		return this.toMessage(saved, viewerId);
+		const response = this.toMessage(saved, viewerId);
+
+		// After the transaction, never inside it: a broadcast cannot be rolled
+		// back, and announcing a message that was then rolled back is worse
+		// than announcing one late.
+		this.gateway.broadcastMessage(conversationId, viewerId, response);
+
+		return response;
 	}
 
 	/**
@@ -206,6 +225,9 @@ export class ChatService {
 		const lastReadAt = new Date();
 
 		await this.participants.update({ id: party.id }, { lastReadAt });
+
+		// Lets the other party's ticks catch up without them polling for it.
+		this.gateway.broadcastRead(conversationId, viewerId, lastReadAt);
 
 		return new ReadReceiptDto(conversationId, lastReadAt);
 	}
@@ -248,7 +270,9 @@ export class ChatService {
 	private async partiesFor(
 		viewerId: string,
 		conversationIds: string[],
-	): Promise<Map<string, ConversationPartyDto>> {
+	): Promise<
+		Map<string, { dto: ConversationPartyDto; lastReadAt: Date | null }>
+	> {
 		const rows = await this.participants.find({
 			where: { conversationId: In(conversationIds) },
 			relations: { user: { photos: true } },
@@ -266,16 +290,23 @@ export class ChatService {
 
 					return [
 						row.conversationId,
-						new ConversationPartyDto(
-							row.user,
-							avatar
-								? this.storage.buildUrl(
-										avatar.storageId,
-										'thumbnail',
-									)
-								: null,
-							isOnline(row.user.lastActiveAt, since),
-						),
+						{
+							dto: new ConversationPartyDto(
+								row.user,
+								avatar
+									? this.storage.buildUrl(
+											avatar.storageId,
+											'thumbnail',
+										)
+									: null,
+								this.presence.isOnline(
+									row.userId,
+									row.user.lastActiveAt,
+									since,
+								),
+							),
+							lastReadAt: row.lastReadAt,
+						},
 					];
 				}),
 		);

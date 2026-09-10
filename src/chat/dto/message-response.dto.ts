@@ -46,8 +46,20 @@ export class MessagePageDto {
 	@ApiProperty({ type: PageInfoDto })
 	page: PageInfoDto;
 
-	constructor(items: MessageResponseDto[], page: PageInfoDto) {
+	@ApiPropertyOptional({
+		nullable: true,
+		description:
+			'How far the other party has read, so a sent tick can become a read tick.',
+	})
+	partyLastReadAt: Date | null;
+
+	constructor(
+		items: MessageResponseDto[],
+		page: PageInfoDto,
+		partyLastReadAt: Date | null,
+	) {
 		this.items = items;
 		this.page = page;
+		this.partyLastReadAt = partyLastReadAt;
 	}
 }

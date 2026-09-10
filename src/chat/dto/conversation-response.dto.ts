@@ -84,12 +84,20 @@ export class ConversationResponseDto {
 	@ApiPropertyOptional({ nullable: true })
 	lastMessageAt: Date | null;
 
+	@ApiPropertyOptional({
+		nullable: true,
+		description:
+			"How far the other party has read. A message of the viewer's sent at or before this has been seen by them.",
+	})
+	partyLastReadAt: Date | null;
+
 	constructor(
 		conversation: Conversation,
 		party: ConversationPartyDto,
 		lastMessage: ConversationPreviewDto | null,
 		unreadCount: number,
 		isFavourite: boolean,
+		partyLastReadAt: Date | null,
 	) {
 		this.id = conversation.id;
 		this.party = party;
@@ -97,6 +105,7 @@ export class ConversationResponseDto {
 		this.unreadCount = unreadCount;
 		this.isFavourite = isFavourite;
 		this.lastMessageAt = conversation.lastMessageAt;
+		this.partyLastReadAt = partyLastReadAt;
 	}
 }
 
