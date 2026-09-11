@@ -2,6 +2,8 @@ import {
 	Body,
 	Controller,
 	Get,
+	HttpCode,
+	HttpStatus,
 	Param,
 	Patch,
 	Post,
@@ -9,10 +11,12 @@ import {
 } from '@nestjs/common';
 import { ParseUUIDPipe } from '@nestjs/common';
 import {
+	ApiBadRequestResponse,
 	ApiBearerAuth,
 	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
+	ApiServiceUnavailableResponse,
 	ApiTags,
 	ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -27,6 +31,7 @@ import { MessagePageDto, MessageResponseDto } from './dto/message-response.dto';
 import { ReadReceiptDto } from './dto/read-receipt.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { SetFavouriteDto } from './dto/set-favourite.dto';
+import { UploadSignatureResponseDto } from '../common/dto/upload-signature.dto';
 
 @ApiTags('Chat')
 @ApiBearerAuth('access-token')
@@ -68,15 +73,45 @@ export class ChatController {
 		return this.chat.listMessages(userId, id, query);
 	}
 
-	@ApiOperation({ summary: 'Send a text message' })
+	@ApiOperation({
+		summary: 'Send a message',
+		description:
+			'Text or an image, never both. An image is sent as the mediaStorageId of a finished upload.',
+	})
 	@ApiOkResponse({ type: MessageResponseDto })
+	@ApiBadRequestResponse({
+		description:
+			'VALIDATION_FAILED, INVALID_UPLOAD_REFERENCE or UPLOAD_NOT_FOUND',
+		type: ApiErrorDto,
+	})
 	@Post(':id/messages')
 	async send(
 		@CurrentUser('id') userId: string,
 		@Param('id', ParseUUIDPipe) id: string,
 		@Body() dto: SendMessageDto,
 	): Promise<MessageResponseDto> {
-		return this.chat.sendMessage(userId, id, dto.body);
+		return this.chat.sendMessage(userId, id, dto);
+	}
+
+	@ApiOperation({
+		summary: 'Get a signed direct upload for a chat image',
+		description:
+			'The image goes device to provider; only the resulting mediaStorageId comes back through this API.',
+	})
+	@ApiOkResponse({ type: UploadSignatureResponseDto })
+	@ApiServiceUnavailableResponse({
+		description: 'STORAGE_NOT_CONFIGURED',
+		type: ApiErrorDto,
+	})
+	@Post(':id/messages/upload-signature')
+	@HttpCode(HttpStatus.OK)
+	async imageUploadSignature(
+		@CurrentUser('id') userId: string,
+		@Param('id', ParseUUIDPipe) id: string,
+	): Promise<UploadSignatureResponseDto> {
+		return new UploadSignatureResponseDto(
+			await this.chat.createImageUploadSignature(userId, id),
+		);
 	}
 
 	@ApiOperation({ summary: 'Mark everything in the thread read' })

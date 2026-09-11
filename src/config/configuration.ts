@@ -64,6 +64,7 @@ export const storageConfig = registerAs('storage', () => {
 		apiKey: e.CLOUDINARY_API_KEY,
 		apiSecret: e.CLOUDINARY_API_SECRET,
 		uploadFolder: e.CLOUDINARY_UPLOAD_FOLDER,
+		chatFolder: e.CLOUDINARY_CHAT_FOLDER,
 		isConfigured: Boolean(
 			e.CLOUDINARY_CLOUD_NAME &&
 			e.CLOUDINARY_API_KEY &&

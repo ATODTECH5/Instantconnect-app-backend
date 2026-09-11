@@ -12,6 +12,14 @@ export class UnconfiguredStorage extends Storage {
 		throw this.notConfigured();
 	}
 
+	buildChatStorageId(): string {
+		throw this.notConfigured();
+	}
+
+	isChatStorageId(): boolean {
+		throw this.notConfigured();
+	}
+
 	createUploadSignature(): UploadSignature {
 		throw this.notConfigured();
 	}
@@ -36,7 +44,7 @@ export class UnconfiguredStorage extends Storage {
 		return new ServiceUnavailableException({
 			code: 'STORAGE_NOT_CONFIGURED',
 			message:
-				'Photo uploads are unavailable because no storage provider is configured.',
+				'Image uploads are unavailable because no storage provider is configured.',
 		});
 	}
 }

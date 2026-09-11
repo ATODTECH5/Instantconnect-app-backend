@@ -74,8 +74,20 @@ export class User extends BaseEntity {
 	@Column({ type: 'date', nullable: true })
 	dateOfBirth!: IsoDate | null;
 
+	/**
+	 * Written by the server alongside `pinHash`, never asserted by the client,
+	 * so it cannot claim a PIN the account does not have.
+	 */
 	@Column({ default: false })
 	pinEnabled!: boolean;
+
+	/**
+	 * Argon2id, never selected by default. Four digits is low entropy, so the
+	 * attempt limit on verification is the real protection; the hash is what
+	 * keeps a database read from yielding usable PINs.
+	 */
+	@Column({ type: 'varchar', length: 255, nullable: true, select: false })
+	pinHash!: string | null;
 
 	@Column({ default: false })
 	biometricsEnabled!: boolean;

@@ -116,7 +116,11 @@ describe('ChatGateway', () => {
 			const result = await gateway.join(client as never, CONVERSATION);
 
 			expect(result).toEqual({ joined: false });
-			expect(client.join).not.toHaveBeenCalled();
+			// The handshake joins the account's own room, so the assertion is
+			// that no conversation room was joined, not that none was.
+			expect(client.join).not.toHaveBeenCalledWith(
+				`conversation:${CONVERSATION}`,
+			);
 		});
 
 		it('refuses an unauthenticated socket outright', async () => {

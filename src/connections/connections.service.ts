@@ -3,6 +3,7 @@ import {
 	ConflictException,
 	ForbiddenException,
 	Injectable,
+	Logger,
 	NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -12,7 +13,10 @@ import {
 	PageInfoDto,
 	type PaginationQueryDto,
 } from '../common/dto/pagination.dto';
+import { ChatGateway } from '../chat/chat.gateway';
 import { ChatService } from '../chat/chat.service';
+import { NotificationKind } from '../notifications/entities/notification-kind.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Storage } from '../storage/storage';
 import { AVATAR_POSITION } from '../users/entities/user-photo.entity';
 import { User } from '../users/entities/user.entity';
@@ -33,6 +37,8 @@ const PARTY_RELATIONS = {
 
 @Injectable()
 export class ConnectionsService {
+	private readonly logger = new Logger(ConnectionsService.name);
+
 	constructor(
 		@InjectRepository(Connection)
 		private readonly connections: Repository<Connection>,
@@ -40,6 +46,8 @@ export class ConnectionsService {
 		private readonly users: Repository<User>,
 		private readonly storage: Storage,
 		private readonly chat: ChatService,
+		private readonly notifications: NotificationsService,
+		private readonly gateway: ChatGateway,
 	) {}
 
 	/**
@@ -80,6 +88,13 @@ export class ConnectionsService {
 				addresseeId,
 				status: ConnectionStatus.Pending,
 			}),
+		);
+
+		await this.notify(
+			addresseeId,
+			NotificationKind.ConnectionRequest,
+			requesterId,
+			saved.id,
 		);
 
 		return this.toResponse(
@@ -123,9 +138,45 @@ export class ConnectionsService {
 				saved.requesterId,
 				saved.addresseeId,
 			]);
+
+			// Only the requester is told. The person who just tapped Accept
+			// does not need telling what they did.
+			await this.notify(
+				saved.requesterId,
+				NotificationKind.ConnectionAccepted,
+				viewerId,
+				saved.id,
+			);
 		}
 
 		return this.toResponse(saved, viewerId);
+	}
+
+	/**
+	 * Best effort, and always after the thing it describes has been committed.
+	 * A connection that succeeded must not be reported as failed because the
+	 * courtesy notification could not be raised.
+	 */
+	private async notify(
+		userId: string,
+		kind: NotificationKind,
+		actorId: string,
+		subjectId: string,
+	): Promise<void> {
+		try {
+			const notification = await this.notifications.create({
+				userId,
+				kind,
+				actorId,
+				subjectId,
+			});
+
+			this.gateway.broadcastNotification(userId, notification);
+		} catch (error) {
+			this.logger.warn(
+				`Could not raise a ${kind} notification for ${userId}: ${String(error)}`,
+			);
+		}
 	}
 
 	async list(

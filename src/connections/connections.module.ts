@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ChatModule } from '../chat/chat.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
 import { User } from '../users/entities/user.entity';
 import { ConnectionsController } from './connections.controller';
@@ -13,6 +14,7 @@ import { Connection } from './entities/connection.entity';
 		TypeOrmModule.forFeature([Connection, User]),
 		StorageModule,
 		ChatModule,
+		NotificationsModule,
 	],
 	controllers: [ConnectionsController],
 	providers: [ConnectionsService],

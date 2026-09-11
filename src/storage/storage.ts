@@ -24,6 +24,29 @@ export abstract class Storage {
 	abstract delete(storageId: string): Promise<void>;
 
 	abstract buildStorageId(userId: string, position: number): string;
+
+	/**
+	 * Chat images live under the conversation rather than the sender, so a
+	 * thread's media can be swept in one go if it is ever deleted. The sender is
+	 * still in the id, because that is what lets the confirm step reject an id
+	 * signed for someone else.
+	 */
+	abstract buildChatStorageId(
+		conversationId: string,
+		senderId: string,
+	): string;
+
+	/**
+	 * Whether an id is one {@link buildChatStorageId} would have produced for
+	 * this pair. Lives here because the id format is this class's to know: a
+	 * caller parsing the string itself would silently stop matching the day the
+	 * layout changes.
+	 */
+	abstract isChatStorageId(
+		storageId: string,
+		conversationId: string,
+		senderId: string,
+	): boolean;
 }
 
 /**

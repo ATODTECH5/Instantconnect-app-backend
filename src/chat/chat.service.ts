@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+	BadRequestException,
+	Injectable,
+	Logger,
+	NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Not, Repository } from 'typeorm';
 
@@ -7,7 +12,9 @@ import type { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { onlineSince } from '../presence/online-window';
 import { PresenceRegistry } from '../presence/presence-registry';
 import { ChatGateway } from './chat.gateway';
-import { Storage } from '../storage/storage';
+import { NotificationKind } from '../notifications/entities/notification-kind.enum';
+import { NotificationsService } from '../notifications/notifications.service';
+import { Storage, type UploadSignature } from '../storage/storage';
 import { AVATAR_POSITION } from '../users/entities/user-photo.entity';
 import {
 	ConversationPageDto,
@@ -18,6 +25,7 @@ import {
 import type { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 import { MessagePageDto, MessageResponseDto } from './dto/message-response.dto';
 import { ReadReceiptDto } from './dto/read-receipt.dto';
+import type { SendMessageDto } from './dto/send-message.dto';
 import { ConversationParticipant } from './entities/conversation-participant.entity';
 import { Conversation } from './entities/conversation.entity';
 import { Message } from './entities/message.entity';
@@ -37,6 +45,8 @@ const HAS_UNREAD = `EXISTS (
 
 @Injectable()
 export class ChatService {
+	private readonly logger = new Logger(ChatService.name);
+
 	constructor(
 		@InjectRepository(Conversation)
 		private readonly conversations: Repository<Conversation>,
@@ -45,6 +55,7 @@ export class ChatService {
 		@InjectRepository(Message)
 		private readonly messages: Repository<Message>,
 		private readonly storage: Storage,
+		private readonly notifications: NotificationsService,
 		private readonly dataSource: DataSource,
 		private readonly gateway: ChatGateway,
 		private readonly presence: PresenceRegistry,
@@ -173,23 +184,59 @@ export class ChatService {
 	}
 
 	/**
+	 * Membership is checked before a signature is minted, or anyone holding a
+	 * conversation id could put files in someone else's thread's folder.
+	 */
+	async createImageUploadSignature(
+		viewerId: string,
+		conversationId: string,
+	): Promise<UploadSignature> {
+		await this.membershipOrThrow(viewerId, conversationId);
+
+		return this.storage.createUploadSignature(
+			this.storage.buildChatStorageId(conversationId, viewerId),
+		);
+	}
+
+	/**
 	 * The insert and the ordering key move together: a message the chat list
 	 * cannot order is worse than no message, so both or neither.
 	 */
 	async sendMessage(
 		viewerId: string,
 		conversationId: string,
-		body: string,
+		input: SendMessageDto,
 	): Promise<MessageResponseDto> {
 		await this.membershipOrThrow(viewerId, conversationId);
+
+		const { body, mediaStorageId } = input;
+
+		if (body !== undefined && mediaStorageId !== undefined) {
+			throw new BadRequestException({
+				code: 'VALIDATION_FAILED',
+				message: 'A message carries either text or an image, not both.',
+			});
+		}
+
+		if (mediaStorageId !== undefined) {
+			await this.assertUploadUsable(
+				viewerId,
+				conversationId,
+				mediaStorageId,
+			);
+		}
 
 		const saved = await this.dataSource.transaction(async (manager) => {
 			const message = await manager.save(
 				manager.create(Message, {
 					conversationId,
 					senderId: viewerId,
-					kind: MessageKind.Text,
-					body,
+					kind:
+						mediaStorageId === undefined
+							? MessageKind.Text
+							: MessageKind.Image,
+					body: body ?? null,
+					mediaStorageId: mediaStorageId ?? null,
 				}),
 			);
 
@@ -208,8 +255,40 @@ export class ChatService {
 		// back, and announcing a message that was then rolled back is worse
 		// than announcing one late.
 		this.gateway.broadcastMessage(conversationId, viewerId, response);
+		await this.notifyRecipient(viewerId, conversationId);
 
 		return response;
+	}
+
+	/**
+	 * Best effort, and after the send has already succeeded. A notification is
+	 * a courtesy on top of a message that is already stored and delivered, so
+	 * failing to raise one must not fail the send.
+	 */
+	private async notifyRecipient(
+		senderId: string,
+		conversationId: string,
+	): Promise<void> {
+		try {
+			const other = await this.participants.findOne({
+				where: { conversationId, userId: Not(senderId) },
+			});
+
+			if (!other) return;
+
+			const notification = await this.notifications.create({
+				userId: other.userId,
+				kind: NotificationKind.Message,
+				actorId: senderId,
+				subjectId: conversationId,
+			});
+
+			this.gateway.broadcastNotification(other.userId, notification);
+		} catch (error) {
+			this.logger.warn(
+				`Could not raise a message notification for ${conversationId}: ${String(error)}`,
+			);
+		}
 	}
 
 	/**
@@ -365,6 +444,34 @@ export class ChatService {
 			.where('party.userId = :viewerId', { viewerId })
 			.andWhere(HAS_UNREAD)
 			.getCount();
+	}
+
+	/**
+	 * Two separate checks. The id must be one this conversation and sender were
+	 * signed for, or a caller could attach a file uploaded elsewhere, including
+	 * another thread's. And the asset must actually exist with the provider, so
+	 * a bubble never renders against a URL that was never uploaded to.
+	 */
+	private async assertUploadUsable(
+		senderId: string,
+		conversationId: string,
+		storageId: string,
+	): Promise<void> {
+		if (
+			!this.storage.isChatStorageId(storageId, conversationId, senderId)
+		) {
+			throw new BadRequestException({
+				code: 'INVALID_UPLOAD_REFERENCE',
+				message: 'That upload does not belong to this conversation.',
+			});
+		}
+
+		if (!(await this.storage.findAsset(storageId))) {
+			throw new BadRequestException({
+				code: 'UPLOAD_NOT_FOUND',
+				message: 'That upload did not complete. Please try again.',
+			});
+		}
 	}
 
 	private toMessage(message: Message, viewerId: string): MessageResponseDto {

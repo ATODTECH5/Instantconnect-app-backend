@@ -6,6 +6,7 @@ import { DataSource } from 'typeorm';
 import { Storage } from '../storage/storage';
 import { PresenceRegistry } from '../presence/presence-registry';
 import { ChatGateway } from './chat.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ChatService } from './chat.service';
 import { ConversationPreviewDto } from './dto/conversation-response.dto';
 import { ConversationParticipant } from './entities/conversation-participant.entity';
@@ -92,6 +93,10 @@ describe('ChatService', () => {
 					useValue: { buildUrl: () => 'https://cdn/a' },
 				},
 				{ provide: ChatGateway, useValue: gateway },
+				{
+					provide: NotificationsService,
+					useValue: { create: jest.fn().mockResolvedValue({}) },
+				},
 				{ provide: PresenceRegistry, useValue: new PresenceRegistry() },
 				{
 					provide: DataSource,
@@ -118,7 +123,7 @@ describe('ChatService', () => {
 			],
 			[
 				'sending to a thread',
-				() => service.sendMessage(VIEWER, CONVERSATION, 'hi'),
+				() => service.sendMessage(VIEWER, CONVERSATION, { body: 'hi' }),
 			],
 			[
 				'marking a thread read',
@@ -147,11 +152,9 @@ describe('ChatService', () => {
 
 	describe('sendMessage', () => {
 		it('stores the message and moves the ordering key with it', async () => {
-			const result = await service.sendMessage(
-				VIEWER,
-				CONVERSATION,
-				'Hello, how are you?',
-			);
+			const result = await service.sendMessage(VIEWER, CONVERSATION, {
+				body: 'Hello, how are you?',
+			});
 
 			expect(manager.update).toHaveBeenCalledWith(
 				Conversation,
@@ -164,11 +167,9 @@ describe('ChatService', () => {
 		});
 
 		it('announces the message to the thread once it is stored', async () => {
-			const result = await service.sendMessage(
-				VIEWER,
-				CONVERSATION,
-				'Hello, how are you?',
-			);
+			const result = await service.sendMessage(VIEWER, CONVERSATION, {
+				body: 'Hello, how are you?',
+			});
 
 			expect(gateway.broadcastMessage).toHaveBeenCalledWith(
 				CONVERSATION,
@@ -181,7 +182,7 @@ describe('ChatService', () => {
 			manager.save.mockRejectedValue(new Error('write failed'));
 
 			await expect(
-				service.sendMessage(VIEWER, CONVERSATION, 'hi'),
+				service.sendMessage(VIEWER, CONVERSATION, { body: 'hi' }),
 			).rejects.toThrow();
 
 			expect(gateway.broadcastMessage).not.toHaveBeenCalled();

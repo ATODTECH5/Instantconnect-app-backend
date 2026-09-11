@@ -27,8 +27,19 @@ export const TYPING = 'conversation.typing';
 /** The other party has read up to a moment, so delivered ticks can become read ticks. */
 export const READ = 'conversation.read';
 
+/** Something happened that the account should be told about, wherever it is in the app. */
+export const NOTIFICATION_CREATED = 'notification.created';
+
 /** Room per thread, so a broadcast never reaches an account outside it. */
 const roomFor = (conversationId: string) => `conversation:${conversationId}`;
+
+/**
+ * Room per account, joined at the handshake. A notification is addressed to a
+ * person rather than to a thread, so it cannot use the conversation rooms: the
+ * recipient is usually not looking at the thread when it arrives, and may not
+ * have joined it at all this session.
+ */
+const userRoomFor = (userId: string) => `user:${userId}`;
 
 type AuthedSocket = Socket & { userId?: string };
 
@@ -74,6 +85,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 			});
 
 			client.userId = payload.sub;
+			void client.join(userRoomFor(payload.sub));
 			this.presence.add(payload.sub);
 		} catch {
 			client.disconnect(true);
@@ -176,6 +188,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 			conversationId,
 			senderId,
 			message: { ...message, isMine: false },
+		});
+	}
+
+	/**
+	 * Addressed to one account rather than a thread, so the bell updates
+	 * wherever they are in the app. Typed loosely because the payload belongs
+	 * to the notifications module, and importing its DTO here would put chat
+	 * and notifications in a cycle.
+	 */
+	broadcastNotification(userId: string, notification: unknown): void {
+		this.server?.to(userRoomFor(userId)).emit(NOTIFICATION_CREATED, {
+			notification,
 		});
 	}
 }

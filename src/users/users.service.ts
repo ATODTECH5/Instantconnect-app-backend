@@ -1,4 +1,5 @@
 import {
+	BadRequestException,
 	ConflictException,
 	Injectable,
 	NotFoundException,
@@ -7,7 +8,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository } from 'typeorm';
 
 import type { IsoDate } from '../common/utils/age.util';
+import {
+	burnVerification,
+	hashSecret,
+	verifySecret,
+} from '../common/utils/hashing.util';
 import { normaliseEmail } from '../common/utils/normalise.util';
+import { ConnectionsService } from '../connections/connections.service';
 import { ReferenceService } from '../reference/reference.service';
 import { Storage } from '../storage/storage';
 import {
@@ -28,6 +35,24 @@ export type CreateUserData = {
 	dateOfBirth: IsoDate;
 };
 
+/**
+ * The first PINs an attacker tries. Enforced here rather than only on the
+ * client, because a client check is advice and this one is a rule.
+ */
+function isPredictablePin(pin: string): boolean {
+	const digits = [...pin].map(Number);
+
+	return (
+		digits.every((digit) => digit === digits[0]) ||
+		digits.every(
+			(digit, index) => index === 0 || digit === digits[index - 1] + 1,
+		) ||
+		digits.every(
+			(digit, index) => index === 0 || digit === digits[index - 1] - 1,
+		)
+	);
+}
+
 const PROFILE_RELATIONS = {
 	category: true,
 	occupation: true,
@@ -42,6 +67,7 @@ export class UsersService {
 		private readonly users: Repository<User>,
 		private readonly reference: ReferenceService,
 		private readonly storage: Storage,
+		private readonly connections: ConnectionsService,
 	) {}
 
 	findById(id: string): Promise<User | null> {
@@ -124,6 +150,50 @@ export class UsersService {
 		return this.getByIdOrFail(userId);
 	}
 
+	/**
+	 * Replaces whatever PIN the account had. `pinEnabled` is written here rather
+	 * than accepted from the client, so the flag can never claim a PIN that has
+	 * no hash behind it.
+	 */
+	async setPin(userId: string, pin: string): Promise<User> {
+		if (isPredictablePin(pin)) {
+			throw new BadRequestException({
+				code: 'WEAK_PIN',
+				message:
+					'Pick a less predictable PIN. Avoid repeated digits and runs like 1234.',
+			});
+		}
+
+		await this.users.update(userId, {
+			pinHash: await hashSecret(pin),
+			pinEnabled: true,
+		});
+
+		return this.getByIdOrFail(userId);
+	}
+
+	/**
+	 * Four digits is 10,000 guesses, so the rate limit on the route is what
+	 * actually protects this — the hash only keeps a database read from
+	 * yielding usable PINs. Returns a boolean rather than throwing, because an
+	 * account with no PIN set and a wrong PIN are the same answer to the
+	 * caller: not unlocked.
+	 */
+	async verifyPin(userId: string, pin: string): Promise<boolean> {
+		const user = await this.users.findOne({
+			where: { id: userId },
+			select: { id: true, pinHash: true },
+		});
+
+		if (!user?.pinHash) {
+			await burnVerification(pin);
+
+			return false;
+		}
+
+		return verifySecret(user.pinHash, pin);
+	}
+
 	async setCategory(userId: string, categoryId: string): Promise<User> {
 		await this.reference.findCategoryOrFail(categoryId);
 		await this.users.update(userId, { categoryId });
@@ -183,7 +253,7 @@ export class UsersService {
 		return this.toProfile(await this.getByIdOrFail(userId));
 	}
 
-	toProfile(user: User): ProfileResponseDto {
+	async toProfile(user: User): Promise<ProfileResponseDto> {
 		const photos: ProfilePhotoDto[] = (user.photos ?? []).map((photo) => ({
 			id: photo.id,
 			position: photo.position,
@@ -191,15 +261,24 @@ export class UsersService {
 			url: this.storage.buildUrl(photo.storageId, 'full'),
 		}));
 
-		return new ProfileResponseDto(user, this.buildStats(), photos);
+		return new ProfileResponseDto(
+			user,
+			await this.buildStats(user.id),
+			photos,
+		);
 	}
 
 	/**
-	 * Counts the profile header renders. Connections, events and communities are
-	 * not modelled yet, so they read zero rather than being invented client side.
+	 * Counts the profile header renders. Events and communities have no table
+	 * yet, so they read zero rather than being invented client side; they light
+	 * up on their own once those features land.
 	 */
-	private buildStats(): ProfileStatsDto {
-		return { connections: 0, eventsJoined: 0, communities: 0 };
+	private async buildStats(userId: string): Promise<ProfileStatsDto> {
+		return {
+			connections: await this.connections.countAccepted(userId),
+			eventsJoined: 0,
+			communities: 0,
+		};
 	}
 
 	/**

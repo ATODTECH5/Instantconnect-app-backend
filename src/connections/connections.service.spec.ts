@@ -7,7 +7,9 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { ChatGateway } from '../chat/chat.gateway';
 import { ChatService } from '../chat/chat.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { Storage } from '../storage/storage';
 import { User } from '../users/entities/user.entity';
 import { ConnectionsService } from './connections.service';
@@ -74,6 +76,14 @@ describe('ConnectionsService', () => {
 					useValue: { buildUrl: () => 'https://cdn/a' },
 				},
 				{ provide: ChatService, useValue: chat },
+				{
+					provide: NotificationsService,
+					useValue: { create: jest.fn().mockResolvedValue({}) },
+				},
+				{
+					provide: ChatGateway,
+					useValue: { broadcastNotification: jest.fn() },
+				},
 			],
 		}).compile();
 

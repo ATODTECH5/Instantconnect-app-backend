@@ -51,6 +51,20 @@ export class CloudinaryStorage extends Storage {
 		return `${this.config.uploadFolder}/${userId}/${position}-${randomUUID()}`;
 	}
 
+	buildChatStorageId(conversationId: string, senderId: string): string {
+		return `${this.config.chatFolder}/${conversationId}/${senderId}-${randomUUID()}`;
+	}
+
+	isChatStorageId(
+		storageId: string,
+		conversationId: string,
+		senderId: string,
+	): boolean {
+		return storageId.startsWith(
+			`${this.config.chatFolder}/${conversationId}/${senderId}-`,
+		);
+	}
+
 	createUploadSignature(storageId: string): UploadSignature {
 		const timestamp = Math.floor(Date.now() / 1000);
 		const signature = cloudinary.utils.api_sign_request(
@@ -108,11 +122,27 @@ export class CloudinaryStorage extends Storage {
 	}
 }
 
+/**
+ * The SDK reports a missing resource two ways depending on the call: some
+ * reject with `{ http_code }` at the top level, `api.resource` with it nested
+ * under `error`. Reading only the top level made every missing asset look like
+ * an outage, so `UPLOAD_NOT_FOUND` was unreachable and callers saw a 500.
+ */
 function isNotFound(error: unknown): boolean {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'http_code' in error &&
-		(error as { http_code: number }).http_code === 404
-	);
+	return httpCodeOf(error) === 404 || httpCodeOf(unwrap(error)) === 404;
+}
+
+function unwrap(error: unknown): unknown {
+	return typeof error === 'object' && error !== null && 'error' in error
+		? error.error
+		: undefined;
+}
+
+function httpCodeOf(error: unknown): number | undefined {
+	if (typeof error !== 'object' || error === null) return undefined;
+	if (!('http_code' in error)) return undefined;
+
+	const code = error.http_code;
+
+	return typeof code === 'number' ? code : undefined;
 }

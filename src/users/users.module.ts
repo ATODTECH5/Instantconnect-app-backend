@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { ConnectionsModule } from '../connections/connections.module';
 import { ReferenceModule } from '../reference/reference.module';
 import { StorageModule } from '../storage/storage.module';
 import { AuthIdentity } from './entities/auth-identity.entity';
@@ -16,6 +17,7 @@ import { UsersService } from './users.service';
 		TypeOrmModule.forFeature([User, AuthIdentity, UserPhoto]),
 		ReferenceModule,
 		StorageModule,
+		ConnectionsModule,
 	],
 	controllers: [UsersController, UserPhotosController],
 	providers: [UsersService, UserPhotosService],

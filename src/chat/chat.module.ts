@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { authConfig } from '../config/configuration';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PresenceModule } from '../presence/presence.module';
 import { StorageModule } from '../storage/storage.module';
 import { ChatGateway } from './chat.gateway';
@@ -27,6 +28,7 @@ import { Message } from './entities/message.entity';
 		]),
 		StorageModule,
 		PresenceModule,
+		NotificationsModule,
 		// Its own registration rather than AuthModule's, which does not export
 		// JwtModule. The gateway only ever verifies a token, never signs one.
 		JwtModule.registerAsync({
@@ -38,6 +40,6 @@ import { Message } from './entities/message.entity';
 	],
 	controllers: [ChatController],
 	providers: [ChatService, ChatGateway],
-	exports: [ChatService],
+	exports: [ChatService, ChatGateway],
 })
 export class ChatModule {}

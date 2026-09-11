@@ -15,6 +15,7 @@ import { DatabaseModule } from './database/database.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { PresenceInterceptor } from './presence/presence.interceptor';
 import { PresenceModule } from './presence/presence.module';
 import { ReferenceModule } from './reference/reference.module';
@@ -45,6 +46,7 @@ import { UsersModule } from './users/users.module';
 		AuthModule,
 		ConnectionsModule,
 		ChatModule,
+		NotificationsModule,
 		DiscoveryModule,
 		PresenceModule,
 		HealthModule,

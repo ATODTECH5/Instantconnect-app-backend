@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { ConnectionsService } from '../connections/connections.service';
 import { ReferenceService } from '../reference/reference.service';
 import { Storage } from '../storage/storage';
 import { User } from './entities/user.entity';
@@ -55,6 +56,10 @@ describe('UsersService.updateProfile', () => {
 				UsersService,
 				{ provide: getRepositoryToken(User), useValue: users },
 				{ provide: ReferenceService, useValue: reference },
+				{
+					provide: ConnectionsService,
+					useValue: { countAccepted: jest.fn().mockResolvedValue(0) },
+				},
 				{
 					provide: Storage,
 					useValue: {
@@ -156,6 +161,10 @@ describe('UsersService.toProfile', () => {
 				{ provide: getRepositoryToken(User), useValue: {} },
 				{ provide: ReferenceService, useValue: {} },
 				{
+					provide: ConnectionsService,
+					useValue: { countAccepted: jest.fn().mockResolvedValue(0) },
+				},
+				{
 					provide: Storage,
 					useValue: {
 						buildUrl: (storageId: string, variant: string) =>
@@ -177,27 +186,27 @@ describe('UsersService.toProfile', () => {
 			],
 		} as unknown as Partial<User>);
 
-	it('serves the avatar at thumbnail size, never the original', () => {
-		const profile = service.toProfile(withPhotos());
+	it('serves the avatar at thumbnail size, never the original', async () => {
+		const profile = await service.toProfile(withPhotos());
 
 		expect(profile.avatarUrl).toBe('https://cdn/thumbnail/store/0-a');
 	});
 
-	it('keeps the avatar out of the gallery and orders the rest by slot', () => {
-		const profile = service.toProfile(withPhotos());
+	it('keeps the avatar out of the gallery and orders the rest by slot', async () => {
+		const profile = await service.toProfile(withPhotos());
 
 		expect(profile.photos.map((photo) => photo.position)).toEqual([1, 2]);
 	});
 
-	it('offers each gallery photo at both sizes', () => {
-		const [first] = service.toProfile(withPhotos()).photos;
+	it('offers each gallery photo at both sizes', async () => {
+		const [first] = (await service.toProfile(withPhotos())).photos;
 
 		expect(first.thumbnailUrl).toBe('https://cdn/thumbnail/store/1-b');
 		expect(first.url).toBe('https://cdn/full/store/1-b');
 	});
 
-	it('reports no avatar rather than failing when none was uploaded', () => {
-		const profile = service.toProfile(existingUser({ photos: [] }));
+	it('reports no avatar rather than failing when none was uploaded', async () => {
+		const profile = await service.toProfile(existingUser({ photos: [] }));
 
 		expect(profile.avatarUrl).toBeNull();
 		expect(profile.photos).toEqual([]);

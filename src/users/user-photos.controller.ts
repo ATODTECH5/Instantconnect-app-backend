@@ -24,10 +24,8 @@ import {
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ProfileResponseDto } from './dto/profile-response.dto';
-import {
-	ConfirmPhotoUploadDto,
-	UploadSignatureResponseDto,
-} from './dto/photo-upload.dto';
+import { UploadSignatureResponseDto } from '../common/dto/upload-signature.dto';
+import { ConfirmPhotoUploadDto } from './dto/photo-upload.dto';
 import { UserPhotosService } from './user-photos.service';
 import { UsersService } from './users.service';
 

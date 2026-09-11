@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Patch, Put } from '@nestjs/common';
+import {
+	Body,
+	Controller,
+	Get,
+	HttpCode,
+	HttpStatus,
+	Patch,
+	Post,
+	Put,
+} from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
 	ApiBadRequestResponse,
 	ApiBearerAuth,
@@ -7,17 +17,31 @@ import {
 	ApiOkResponse,
 	ApiOperation,
 	ApiTags,
+	ApiTooManyRequestsResponse,
 	ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import {
+	PinVerificationResponseDto,
+	SetPinDto,
+	VerifyPinDto,
+} from './dto/pin.dto';
 import { ProfileResponseDto } from './dto/profile-response.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSecurityDto } from './dto/update-security.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import { UsersService } from './users.service';
+
+/**
+ * Five per five minutes. A four digit PIN is 10,000 guesses, so the limit is
+ * what makes it a credential rather than a formality. Per IP like every other
+ * throttle here, which is the weaker of the two options for a device unlock —
+ * revisit if PIN entry ever gates something that matters more than app re-entry.
+ */
+const PIN_THROTTLE = { default: { limit: 5, ttl: 300_000 } };
 
 @ApiTags('Users')
 @ApiBearerAuth('access-token')
@@ -52,6 +76,46 @@ export class UsersController {
 	): Promise<UserResponseDto> {
 		return new UserResponseDto(
 			await this.users.updateSecurity(userId, dto),
+		);
+	}
+
+	@ApiOperation({
+		summary: 'Set or replace the account PIN',
+		description:
+			'Stored as an argon2id hash. Replaces any existing PIN and sets pinEnabled.',
+	})
+	@ApiOkResponse({ type: UserResponseDto })
+	@ApiBadRequestResponse({
+		description: 'WEAK_PIN or VALIDATION_FAILED',
+		type: ApiErrorDto,
+	})
+	@Put('me/pin')
+	async setPin(
+		@CurrentUser('id') userId: string,
+		@Body() dto: SetPinDto,
+	): Promise<UserResponseDto> {
+		return new UserResponseDto(await this.users.setPin(userId, dto.pin));
+	}
+
+	@ApiOperation({
+		summary: 'Check a PIN',
+		description:
+			'Answers whether the PIN matches. An account with no PIN set answers false, so a caller cannot tell the two apart.',
+	})
+	@ApiOkResponse({ type: PinVerificationResponseDto })
+	@ApiTooManyRequestsResponse({
+		description: 'Rate limited',
+		type: ApiErrorDto,
+	})
+	@Throttle(PIN_THROTTLE)
+	@Post('me/pin/verify')
+	@HttpCode(HttpStatus.OK)
+	async verifyPin(
+		@CurrentUser('id') userId: string,
+		@Body() dto: VerifyPinDto,
+	): Promise<PinVerificationResponseDto> {
+		return new PinVerificationResponseDto(
+			await this.users.verifyPin(userId, dto.pin),
 		);
 	}
 

@@ -94,6 +94,12 @@ export const envSchema = z.object({
 	CLOUDINARY_API_SECRET: optionalSecret,
 	/** Upload preset the signed request is bound to, so the app cannot pick its own. */
 	CLOUDINARY_UPLOAD_FOLDER: z.string().default('instant-connect/profiles'),
+	/**
+	 * Chat images are a sibling of the profile folder, not a child of it: they
+	 * belong to a conversation rather than a person, and sweeping a deleted
+	 * thread's media should never walk into profile photos.
+	 */
+	CLOUDINARY_CHAT_FOLDER: z.string().default('instant-connect/chat'),
 
 	THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 	THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
