@@ -20,6 +20,7 @@ import type { MessageResponseDto } from './dto/message-response.dto';
 
 /** Sent to everyone in a thread except the author, who already has it. */
 export const MESSAGE_CREATED = 'message.created';
+export const MEETUP_UPDATED = 'meetup.updated';
 
 /** The other party is composing. Never persisted: it is only true while it is true. */
 export const TYPING = 'conversation.typing';
@@ -189,6 +190,35 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 			senderId,
 			message: { ...message, isMine: false },
 		});
+	}
+
+	/**
+	 * A message whose shape depends on who is reading it. Meetup cards carry
+	 * viewer-relative flags (`isAwaitingMe`, `me`, `party`), so the same row
+	 * is built once per party and sent to each account's own room rather than
+	 * to the thread. The client dedupes by id, so the actor receiving it both
+	 * here and from their own request is harmless.
+	 */
+	broadcastMessageTo(
+		userId: string,
+		conversationId: string,
+		senderId: string,
+		message: MessageResponseDto,
+	): void {
+		this.server?.to(userRoomFor(userId)).emit(MESSAGE_CREATED, {
+			conversationId,
+			senderId,
+			message,
+		});
+	}
+
+	/**
+	 * Per account, shaped for that viewer, on every meetup transition. Typed
+	 * loosely for the same reason as notifications: importing the meetup DTO
+	 * here would make chat depend on meetups, which already depends on chat.
+	 */
+	broadcastMeetup(userId: string, meetup: unknown): void {
+		this.server?.to(userRoomFor(userId)).emit(MEETUP_UPDATED, { meetup });
 	}
 
 	/**

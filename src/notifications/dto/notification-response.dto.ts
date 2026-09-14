@@ -47,6 +47,26 @@ function describe(
 				title: 'Connection accepted',
 				body: `${who} accepted your connection request`,
 			};
+		case NotificationKind.MeetupProposed:
+			return {
+				title: 'Meetup proposal',
+				body: `${who} suggested times to meet`,
+			};
+		case NotificationKind.MeetupAccepted:
+			return {
+				title: 'Meetup confirmed',
+				body: `${who} accepted your meetup. See you there!`,
+			};
+		case NotificationKind.MeetupDeclined:
+			return {
+				title: 'Meetup declined',
+				body: `${who} can't make those times`,
+			};
+		case NotificationKind.MeetupCancelled:
+			return {
+				title: 'Meetup cancelled',
+				body: `${who} cancelled your meetup`,
+			};
 	}
 }
 

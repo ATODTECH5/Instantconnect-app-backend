@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { PageInfoDto } from '../../common/dto/pagination.dto';
+import { MeetupResponseDto } from '../../meetups/dto/meetup-response.dto';
 import type { Message } from '../entities/message.entity';
 import { MessageKind } from '../entities/message-kind.enum';
 
@@ -26,15 +27,29 @@ export class MessageResponseDto {
 	})
 	isMine: boolean;
 
+	@ApiPropertyOptional({
+		type: MeetupResponseDto,
+		nullable: true,
+		description:
+			'Present on meetup cards: the meetup as it is now, not as it was when the card was posted.',
+	})
+	meetup: MeetupResponseDto | null;
+
 	@ApiProperty()
 	createdAt: Date;
 
-	constructor(message: Message, viewerId: string, mediaUrl: string | null) {
+	constructor(
+		message: Message,
+		viewerId: string,
+		mediaUrl: string | null,
+		meetup: MeetupResponseDto | null = null,
+	) {
 		this.id = message.id;
 		this.kind = message.kind;
 		this.body = message.body;
 		this.mediaUrl = mediaUrl;
 		this.isMine = message.senderId === viewerId;
+		this.meetup = meetup;
 		this.createdAt = message.createdAt;
 	}
 }

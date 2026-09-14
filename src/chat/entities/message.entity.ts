@@ -1,6 +1,7 @@
 import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../common/entities/base.entity';
+import { Meetup } from '../../meetups/entities/meetup.entity';
 import { User } from '../../users/entities/user.entity';
 import { Conversation } from './conversation.entity';
 import { MessageKind } from './message-kind.enum';
@@ -42,4 +43,19 @@ export class Message extends BaseEntity {
 	 */
 	@Column({ type: 'varchar', length: 255, nullable: true })
 	mediaStorageId!: string | null;
+
+	/**
+	 * Set on `meetup` and meetup-related `system` messages. The card re-reads
+	 * the meetup's current state on every list, so an old proposal card cannot
+	 * offer Accept after the answer has been given.
+	 */
+	@Column({ type: 'uuid', nullable: true })
+	meetupId!: string | null;
+
+	@ManyToOne(() => Meetup, { onDelete: 'SET NULL', nullable: true })
+	@JoinColumn({
+		name: 'meetupId',
+		foreignKeyConstraintName: 'FK_messages_meetupId',
+	})
+	meetup!: Meetup | null;
 }

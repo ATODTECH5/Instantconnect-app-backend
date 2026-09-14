@@ -12,6 +12,8 @@ import type { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { onlineSince } from '../presence/online-window';
 import { PresenceRegistry } from '../presence/presence-registry';
 import { ChatGateway } from './chat.gateway';
+import { MeetupResponseDto } from '../meetups/dto/meetup-response.dto';
+import type { Meetup } from '../meetups/entities/meetup.entity';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Storage, type UploadSignature } from '../storage/storage';
@@ -166,6 +168,9 @@ export class ChatService {
 		const [[rows, total], other] = await Promise.all([
 			this.messages.findAndCount({
 				where: { conversationId },
+				// Cards need the meetup's current state; one join beats one
+				// query per card, and most pages carry none.
+				relations: { meetup: { participants: true } },
 				order: { createdAt: 'DESC', id: 'DESC' },
 				take: query.limit,
 				skip: query.offset,
@@ -481,6 +486,64 @@ export class ChatService {
 			message.mediaStorageId
 				? this.storage.buildUrl(message.mediaStorageId, 'full')
 				: null,
+			message.meetup?.participants
+				? new MeetupResponseDto(message.meetup, viewerId)
+				: null,
 		);
+	}
+
+	/**
+	 * Written by the meetups service on every transition, so the thread shows
+	 * the card at the point it happened. The caller has already authorised
+	 * the actor against the meetup, which implies membership of the thread.
+	 * `meetup` must carry its participants, since the response embeds it.
+	 */
+	async postMeetupMessage(input: {
+		conversationId: string;
+		senderId: string;
+		meetup: Meetup;
+		kind: MessageKind.Meetup | MessageKind.System;
+		body?: string;
+	}): Promise<MessageResponseDto> {
+		const saved = await this.dataSource.transaction(async (manager) => {
+			const message = await manager.save(
+				manager.create(Message, {
+					conversationId: input.conversationId,
+					senderId: input.senderId,
+					kind: input.kind,
+					body: input.body ?? null,
+					mediaStorageId: null,
+					meetupId: input.meetup.id,
+				}),
+			);
+
+			await manager.update(
+				Conversation,
+				{ id: input.conversationId },
+				{ lastMessageAt: message.createdAt },
+			);
+
+			return message;
+		});
+
+		saved.meetup = input.meetup;
+
+		// Each recipient sees the meetup from their own side, so the broadcast
+		// is built per viewer rather than once. Two parties, two builds.
+		const parties = await this.participants.find({
+			where: { conversationId: input.conversationId },
+			select: { id: true, userId: true },
+		});
+
+		for (const party of parties) {
+			this.gateway.broadcastMessageTo(
+				party.userId,
+				input.conversationId,
+				input.senderId,
+				this.toMessage(saved, party.userId),
+			);
+		}
+
+		return this.toMessage(saved, input.senderId);
 	}
 }
