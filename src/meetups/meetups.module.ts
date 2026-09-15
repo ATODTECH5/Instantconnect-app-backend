@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ChatModule } from '../chat/chat.module';
 import { ConversationParticipant } from '../chat/entities/conversation-participant.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { SafetyModule } from '../safety/safety.module';
 import { MeetupParticipant } from './entities/meetup-participant.entity';
 import { Meetup } from './entities/meetup.entity';
 import { MeetupsController } from './meetups.controller';
@@ -22,6 +23,7 @@ import { MeetupsService } from './meetups.service';
 		]),
 		ChatModule,
 		NotificationsModule,
+		SafetyModule,
 	],
 	controllers: [MeetupsController],
 	providers: [MeetupsService],

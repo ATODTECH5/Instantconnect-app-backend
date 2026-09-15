@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 
 import { appConfig } from '../config/configuration';
-import { Mailer } from './mailer';
+import { Mailer, type PlainEmail } from './mailer';
 
 /**
  * Development stand in: prints the code so the mobile app's verification and
@@ -34,6 +34,20 @@ export class LoggerMailer extends Mailer {
 		code: string,
 	): Promise<void> {
 		return this.deliver('password reset', to, firstName, code);
+	}
+
+	sendSafetyCheckIn(to: string, email: PlainEmail): Promise<void> {
+		if (this.config.isProduction) {
+			this.logger.error(
+				`No mail provider is configured, so the safety check-in to ${to} was not sent.`,
+			);
+		} else {
+			this.logger.log(
+				`safety check-in to <${to}>: ${email.subject}\n${email.text}`,
+			);
+		}
+
+		return Promise.resolve();
 	}
 
 	private deliver(

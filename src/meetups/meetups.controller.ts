@@ -16,15 +16,21 @@ import {
 	ApiOperation,
 	ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { AcceptMeetupDto } from './dto/accept-meetup.dto';
+import { ReportLocationDto, SetLocationSharingDto } from './dto/location.dto';
 import {
+	ArrivalCodeResponseDto,
+	MeetupPartyDto,
 	MeetupResponseDto,
 	OpenMeetupResponseDto,
+	VerifyCodeResponseDto,
 } from './dto/meetup-response.dto';
 import { CounterMeetupDto, ProposeMeetupDto } from './dto/propose-meetup.dto';
 import { SetArrivalDto } from './dto/set-arrival.dto';
+import { VerifyCodeDto } from './dto/verify-code.dto';
 import { MeetupsService } from './meetups.service';
 
 /**
@@ -32,6 +38,16 @@ import { MeetupsService } from './meetups.service';
  * naming them keeps the client from ever writing a state the server has to
  * second-guess.
  */
+/**
+ * Same shape as the PIN throttle: a four digit space needs the route rate
+ * limited as well as the per-code attempt counter, or a script could burn
+ * through codes faster than a person could reissue them.
+ */
+const VERIFY_THROTTLE = { default: { limit: 5, ttl: 300_000 } };
+
+/** Fixes arrive every several seconds; the global limit would starve them. */
+const LOCATION_THROTTLE = { default: { limit: 60, ttl: 60_000 } };
+
 @ApiTags('meetups')
 @ApiBearerAuth()
 @Controller('meetups')
@@ -123,6 +139,69 @@ export class MeetupsController {
 		@Param('id', ParseUUIDPipe) id: string,
 	): Promise<MeetupResponseDto> {
 		return this.meetups.end(userId, id);
+	}
+
+	@Post(':id/arrival-code')
+	@HttpCode(HttpStatus.OK)
+	@ApiOperation({
+		summary: "Issue or reissue the viewer's own arrival code",
+		description:
+			'The plain code is returned once and never again. Reissuing burns the previous one.',
+	})
+	@ApiOkResponse({ type: ArrivalCodeResponseDto })
+	issueCode(
+		@CurrentUser('id') userId: string,
+		@Param('id', ParseUUIDPipe) id: string,
+	): Promise<ArrivalCodeResponseDto> {
+		return this.meetups.issueArrivalCode(userId, id);
+	}
+
+	@Post(':id/verify-code')
+	@HttpCode(HttpStatus.OK)
+	@Throttle(VERIFY_THROTTLE)
+	@ApiOperation({
+		summary: "Enter the other party's code to confirm they arrived",
+		description:
+			'Five wrong guesses burn their code. When both parties are verified the meetup becomes active.',
+	})
+	@ApiOkResponse({ type: VerifyCodeResponseDto })
+	verifyCode(
+		@CurrentUser('id') userId: string,
+		@Param('id', ParseUUIDPipe) id: string,
+		@Body() body: VerifyCodeDto,
+	): Promise<VerifyCodeResponseDto> {
+		return this.meetups.verifyArrivalCode(userId, id, body);
+	}
+
+	@Patch(':id/location-sharing')
+	@ApiOperation({
+		summary: 'Switch live location on or off for the viewer',
+		description: 'Off also discards the last reported fix.',
+	})
+	@ApiOkResponse({ type: MeetupResponseDto })
+	locationSharing(
+		@CurrentUser('id') userId: string,
+		@Param('id', ParseUUIDPipe) id: string,
+		@Body() body: SetLocationSharingDto,
+	): Promise<MeetupResponseDto> {
+		return this.meetups.setLocationSharing(userId, id, body);
+	}
+
+	@Post(':id/location')
+	@HttpCode(HttpStatus.OK)
+	@Throttle(LOCATION_THROTTLE)
+	@ApiOperation({
+		summary: "Report the viewer's current position",
+		description:
+			'Stored as the single latest fix and relayed to the other party only. Refused unless sharing is on.',
+	})
+	@ApiOkResponse({ type: MeetupPartyDto })
+	location(
+		@CurrentUser('id') userId: string,
+		@Param('id', ParseUUIDPipe) id: string,
+		@Body() body: ReportLocationDto,
+	): Promise<MeetupPartyDto> {
+		return this.meetups.reportLocation(userId, id, body);
 	}
 
 	@Patch(':id/arrival')

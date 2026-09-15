@@ -15,4 +15,9 @@ export abstract class Mailer {
 		firstName: string,
 		code: string,
 	): Promise<void>;
+
+	/** A safety check-in to an outside contact. Copy is composed by the caller. */
+	abstract sendSafetyCheckIn(to: string, email: PlainEmail): Promise<void>;
 }
+
+export type PlainEmail = { subject: string; html: string; text: string };

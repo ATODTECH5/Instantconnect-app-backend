@@ -10,19 +10,33 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 
 import { ChatGateway } from '../chat/chat.gateway';
+import {
+	generateNumericCode,
+	hashSecret,
+	verifySecret,
+} from '../common/utils/hashing.util';
 import { ChatService } from '../chat/chat.service';
 import { ConversationParticipant } from '../chat/entities/conversation-participant.entity';
 import { MessageKind } from '../chat/entities/message-kind.enum';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { DispatchTrigger } from '../safety/entities/safety-dispatch.entity';
+import { SafetyService } from '../safety/safety.service';
 import { AcceptMeetupDto } from './dto/accept-meetup.dto';
-import { MeetupResponseDto } from './dto/meetup-response.dto';
+import {
+	ArrivalCodeResponseDto,
+	MeetupPartyDto,
+	MeetupResponseDto,
+	VerifyCodeResponseDto,
+} from './dto/meetup-response.dto';
 import {
 	CounterMeetupDto,
 	MeetupVenueDto,
 	ProposeMeetupDto,
 } from './dto/propose-meetup.dto';
 import { SetArrivalDto } from './dto/set-arrival.dto';
+import { ReportLocationDto, SetLocationSharingDto } from './dto/location.dto';
+import { ARRIVAL_CODE_LENGTH, VerifyCodeDto } from './dto/verify-code.dto';
 import { ArrivalState, isForwardArrival } from './entities/arrival-state.enum';
 import { MeetupParticipant } from './entities/meetup-participant.entity';
 import {
@@ -42,6 +56,15 @@ import { Meetup } from './entities/meetup.entity';
  * happen after the transaction commits: a card for a rolled-back transition
  * is worse than a late card.
  */
+/**
+ * A code outlives the scheduled time by this much, so a late arrival can
+ * still verify. Issued early, it is valid from issue until then.
+ */
+const CODE_GRACE_MS = 2 * 60 * 60 * 1000;
+
+/** Wrong guesses at one code before it is burned and must be reissued. */
+const MAX_CODE_ATTEMPTS = 5;
+
 @Injectable()
 export class MeetupsService {
 	private readonly logger = new Logger(MeetupsService.name);
@@ -56,6 +79,7 @@ export class MeetupsService {
 		private readonly chat: ChatService,
 		private readonly gateway: ChatGateway,
 		private readonly notifications: NotificationsService,
+		private readonly safety: SafetyService,
 		private readonly dataSource: DataSource,
 	) {}
 
@@ -260,6 +284,7 @@ export class MeetupsService {
 		await this.announce(meetup, viewerId, {
 			system: 'Meetup ended. Hope it went well!',
 		});
+		void this.safety.dispatchForMeetup(meetup, DispatchTrigger.Ended);
 
 		return new MeetupResponseDto(meetup, viewerId);
 	}
@@ -317,6 +342,273 @@ export class MeetupsService {
 		return new MeetupResponseDto(meetup, viewerId);
 	}
 
+	/**
+	 * Issues or reissues the viewer's own code. The plain code is returned
+	 * exactly once; the row keeps a hash. Reissuing burns the previous code
+	 * and resets the other party's attempt count against it.
+	 */
+	async issueArrivalCode(
+		viewerId: string,
+		meetupId: string,
+	): Promise<ArrivalCodeResponseDto> {
+		const code = generateNumericCode(ARRIVAL_CODE_LENGTH);
+		const hash = await hashSecret(code);
+
+		const meetup = await this.dataSource.transaction(async (manager) => {
+			const row = await this.lockedOrThrow(manager, meetupId, viewerId);
+
+			if (row.status !== MeetupStatus.Scheduled) {
+				throw this.wrongState(row, 'get a code for');
+			}
+
+			const mine = row.participants.find((p) => p.userId === viewerId);
+
+			if (!mine) throw this.notFound();
+
+			if (mine.verifiedAt !== null) {
+				throw new ConflictException({
+					code: 'ALREADY_VERIFIED',
+					message:
+						'The other person has already confirmed you arrived.',
+				});
+			}
+
+			const base = Math.max(Date.now(), row.scheduledAt?.getTime() ?? 0);
+
+			mine.arrivalCodeHash = hash;
+			mine.arrivalCodeExpiresAt = new Date(base + CODE_GRACE_MS);
+			mine.arrivalCodeAttempts = 0;
+
+			await manager.save(mine);
+
+			return row;
+		});
+
+		this.broadcastState(meetup);
+
+		const mine = meetup.participants.find((p) => p.userId === viewerId)!;
+
+		return new ArrivalCodeResponseDto(
+			code,
+			mine.arrivalCodeExpiresAt!,
+			new MeetupResponseDto(meetup, viewerId),
+		);
+	}
+
+	/**
+	 * The viewer enters the other party's code, which verifies the other
+	 * party, not the viewer. A match also marks them arrived, since a code
+	 * can only be read off a phone that is present. When both are verified
+	 * the meetup becomes active and the thread is told.
+	 */
+	async verifyArrivalCode(
+		viewerId: string,
+		meetupId: string,
+		input: VerifyCodeDto,
+	): Promise<VerifyCodeResponseDto> {
+		const outcome = await this.dataSource.transaction(async (manager) => {
+			const row = await this.lockedOrThrow(manager, meetupId, viewerId);
+
+			if (row.status !== MeetupStatus.Scheduled) {
+				throw this.wrongState(row, 'verify a code for');
+			}
+
+			const theirs = row.participants.find((p) => p.userId !== viewerId);
+
+			if (!theirs) throw this.notFound();
+
+			// The hash is select:false, so it is fetched on demand here only.
+			const secret = await manager
+				.getRepository(MeetupParticipant)
+				.createQueryBuilder('p')
+				.addSelect('p.arrivalCodeHash')
+				.where('p.id = :id', { id: theirs.id })
+				.getOne();
+
+			// Checked before the hash: burning a code nulls its hash, and a
+			// reissue resets this counter, so a full counter always means locked.
+			if (theirs.arrivalCodeAttempts >= MAX_CODE_ATTEMPTS) {
+				throw new ConflictException({
+					code: 'CODE_LOCKED',
+					message:
+						'Too many wrong tries. Ask them to get a new code.',
+				});
+			}
+
+			const hash = secret?.arrivalCodeHash ?? null;
+			const expired =
+				theirs.arrivalCodeExpiresAt !== null &&
+				theirs.arrivalCodeExpiresAt.getTime() <= Date.now();
+
+			if (hash === null || expired) {
+				throw new ConflictException({
+					code: 'NO_ACTIVE_CODE',
+					message: expired
+						? 'That code has expired. Ask them to get a new one.'
+						: "They haven't got a code yet. Ask them to open the meetup.",
+				});
+			}
+
+			const matched = await verifySecret(hash, input.code);
+
+			if (!matched) {
+				theirs.arrivalCodeAttempts += 1;
+
+				// Burn it at the limit so a later guess cannot land. Below the
+				// limit the hash is simply not written: it was never loaded onto
+				// this row (select: false), and save() skips undefined columns.
+				if (theirs.arrivalCodeAttempts >= MAX_CODE_ATTEMPTS) {
+					theirs.arrivalCodeHash = null;
+				}
+
+				await manager.save(theirs);
+
+				return {
+					verified: false,
+					attemptsLeft: Math.max(
+						0,
+						MAX_CODE_ATTEMPTS - theirs.arrivalCodeAttempts,
+					),
+					row,
+					activated: false,
+				};
+			}
+
+			const now = new Date();
+
+			theirs.verifiedAt = now;
+			theirs.arrivalCodeHash = null;
+			theirs.arrivalCodeExpiresAt = null;
+			theirs.arrivedAt ??= now;
+			theirs.enRouteAt ??= now;
+			theirs.arrivalState = ArrivalState.Arrived;
+
+			await manager.save(theirs);
+
+			const mine = row.participants.find((p) => p.userId === viewerId)!;
+			const activated = mine.verifiedAt !== null;
+
+			if (activated) {
+				row.status = MeetupStatus.Active;
+				row.startedAt = now;
+
+				const { participants, ...columns } = row;
+				await manager.save(Meetup, columns);
+				row.participants = participants;
+			}
+
+			return {
+				verified: true,
+				attemptsLeft: MAX_CODE_ATTEMPTS,
+				row,
+				activated,
+			};
+		});
+
+		if (outcome.activated) {
+			await this.announce(outcome.row, viewerId, {
+				system: "You're both verified. Enjoy the meetup, and stay safe 🛡️",
+			});
+			// After the announce, and never awaited into the response path's
+			// error handling: emails to family must not fail a verification.
+			void this.safety.dispatchForMeetup(
+				outcome.row,
+				DispatchTrigger.Verified,
+			);
+		} else {
+			this.broadcastState(outcome.row);
+		}
+
+		return new VerifyCodeResponseDto(
+			outcome.verified,
+			outcome.attemptsLeft,
+			new MeetupResponseDto(outcome.row, viewerId),
+		);
+	}
+
+	/**
+	 * Turning sharing off also drops the last fix, so the other party's map
+	 * cannot keep showing where someone was after they chose to stop.
+	 */
+	async setLocationSharing(
+		viewerId: string,
+		meetupId: string,
+		input: SetLocationSharingDto,
+	): Promise<MeetupResponseDto> {
+		const meetup = await this.dataSource.transaction(async (manager) => {
+			const row = await this.lockedOrThrow(manager, meetupId, viewerId);
+
+			this.mustBeUnderway(row, 'share your location for');
+
+			const mine = row.participants.find((p) => p.userId === viewerId);
+
+			if (!mine) throw this.notFound();
+
+			mine.isSharingLocation = input.enabled;
+
+			if (!input.enabled) {
+				mine.lastLocation = null;
+				mine.lastLocationAt = null;
+			}
+
+			await manager.save(mine);
+
+			return row;
+		});
+
+		this.broadcastState(meetup);
+
+		return new MeetupResponseDto(meetup, viewerId);
+	}
+
+	/**
+	 * One fix in, one fix out to the other party only. Refused while sharing
+	 * is off rather than silently dropped, so a client whose toggle and
+	 * server state disagree finds out.
+	 */
+	async reportLocation(
+		viewerId: string,
+		meetupId: string,
+		input: ReportLocationDto,
+	): Promise<MeetupPartyDto> {
+		const meetup = await this.dataSource.transaction(async (manager) => {
+			const row = await this.lockedOrThrow(manager, meetupId, viewerId);
+
+			this.mustBeUnderway(row, 'report a location for');
+
+			const mine = row.participants.find((p) => p.userId === viewerId);
+
+			if (!mine) throw this.notFound();
+
+			if (!mine.isSharingLocation) {
+				throw new ConflictException({
+					code: 'SHARING_OFF',
+					message: 'Turn on live location first.',
+				});
+			}
+
+			mine.lastLocation = {
+				type: 'Point',
+				coordinates: [input.longitude, input.latitude],
+			};
+			mine.lastLocationAt = new Date();
+
+			await manager.save(mine);
+
+			return row;
+		});
+
+		const mine = meetup.participants.find((p) => p.userId === viewerId)!;
+		const fix = new MeetupPartyDto(mine, meetup);
+
+		this.gateway.broadcastLocation(this.otherOf(meetup, viewerId), {
+			meetupId: meetup.id,
+			party: fix,
+		});
+
+		return fix;
+	}
+
 	async get(viewerId: string, meetupId: string): Promise<MeetupResponseDto> {
 		const meetup = await this.loadOrThrow(meetupId);
 
@@ -348,8 +640,6 @@ export class MeetupsService {
 			? new MeetupResponseDto(settled, viewerId)
 			: null;
 	}
-
-	// ---- transition machinery ------------------------------------------------
 
 	/**
 	 * Locks the row, applies the guard and mutation, saves. The guard throws
@@ -430,8 +720,6 @@ export class MeetupsService {
 		return row;
 	}
 
-	// ---- side effects --------------------------------------------------------
-
 	/**
 	 * Card into the thread, optional system line after it, notification to
 	 * the other party, and a state broadcast so any open meetup screen
@@ -496,12 +784,19 @@ export class MeetupsService {
 		}
 	}
 
-	// ---- guards --------------------------------------------------------------
-
 	private mustBeParty(meetup: Meetup, viewerId: string): void {
 		if (!meetup.participants.some((p) => p.userId === viewerId)) {
 			// Not-found rather than forbidden, so an id cannot be probed.
 			throw this.notFound();
+		}
+	}
+
+	private mustBeUnderway(row: Meetup, verb: string): void {
+		if (
+			row.status !== MeetupStatus.Scheduled &&
+			row.status !== MeetupStatus.Active
+		) {
+			throw this.wrongState(row, verb);
 		}
 	}
 
@@ -531,8 +826,6 @@ export class MeetupsService {
 			message: 'That meetup does not exist.',
 		});
 	}
-
-	// ---- helpers -------------------------------------------------------------
 
 	private async otherMemberOrThrow(
 		viewerId: string,

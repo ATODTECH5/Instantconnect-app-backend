@@ -20,6 +20,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PresenceInterceptor } from './presence/presence.interceptor';
 import { PresenceModule } from './presence/presence.module';
 import { ReferenceModule } from './reference/reference.module';
+import { SafetyModule } from './safety/safety.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 
@@ -49,6 +50,7 @@ import { UsersModule } from './users/users.module';
 		ChatModule,
 		NotificationsModule,
 		MeetupsModule,
+		SafetyModule,
 		DiscoveryModule,
 		PresenceModule,
 		HealthModule,

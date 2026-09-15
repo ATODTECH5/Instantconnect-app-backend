@@ -8,13 +8,11 @@ import {
 } from 'typeorm';
 
 import { BaseEntity } from '../../common/entities/base.entity';
+import type { GeoPoint } from '../../common/utils/geo.util';
 import { Conversation } from '../../chat/entities/conversation.entity';
 import { User } from '../../users/entities/user.entity';
 import { MeetupParticipant } from './meetup-participant.entity';
 import { MeetupStatus } from './meetup-status.enum';
-
-/** GeoJSON shape TypeORM reads a `geography(Point)` column as. */
-export type GeoPoint = { type: 'Point'; coordinates: [number, number] };
 
 /**
  * See the Meetups migration for why a meetup belongs to a conversation and

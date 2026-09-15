@@ -9,7 +9,7 @@ import { Resend } from 'resend';
 
 import { authConfig, mailConfig } from '../config/configuration';
 import { codeEmail, type CodeEmailKind } from './code-email';
-import { Mailer } from './mailer';
+import { Mailer, type PlainEmail } from './mailer';
 
 @Injectable()
 export class ResendMailer extends Mailer {
@@ -40,6 +40,27 @@ export class ResendMailer extends Mailer {
 		code: string,
 	): Promise<void> {
 		return this.deliver('password-reset', to, firstName, code);
+	}
+
+	async sendSafetyCheckIn(to: string, email: PlainEmail): Promise<void> {
+		const { error, data } = await this.resend.emails.send({
+			from: this.mail.from,
+			to,
+			...email,
+		});
+
+		if (error) {
+			this.logger.error(
+				`Resend rejected the safety check-in to ${to}: ${error.name} ${error.message}`,
+			);
+
+			throw new ServiceUnavailableException({
+				code: 'MAIL_DELIVERY_FAILED',
+				message: 'We could not reach one of your contacts right now.',
+			});
+		}
+
+		this.logger.log(`Sent safety check-in to ${to} (id ${data.id})`);
 	}
 
 	private async deliver(

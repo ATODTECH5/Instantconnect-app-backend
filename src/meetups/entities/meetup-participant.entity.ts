@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne, Unique } from 'typeorm';
 
 import { BaseEntity } from '../../common/entities/base.entity';
+import type { GeoPoint } from '../../common/utils/geo.util';
 import { User } from '../../users/entities/user.entity';
 import { ArrivalState } from './arrival-state.enum';
 import { Meetup } from './meetup.entity';
@@ -47,4 +48,31 @@ export class MeetupParticipant extends BaseEntity {
 	/** Set when the other party confirmed this person's arrival code. */
 	@Column({ type: 'timestamptz', nullable: true })
 	verifiedAt!: Date | null;
+
+	/** Never selected by default, like a password hash. */
+	@Column({ type: 'varchar', length: 255, nullable: true, select: false })
+	arrivalCodeHash!: string | null;
+
+	@Column({ type: 'timestamptz', nullable: true })
+	arrivalCodeExpiresAt!: Date | null;
+
+	/** The other party's wrong guesses at this code. Reset on regenerate. */
+	@Column({ type: 'int', default: 0 })
+	arrivalCodeAttempts!: number;
+
+	/** Consent switch. Off clears `lastLocation`; reports are refused while off. */
+	@Column({ default: false })
+	isSharingLocation!: boolean;
+
+	/** Only the latest fix, never a trail. See the LiveLocation migration. */
+	@Column({
+		type: 'geography',
+		spatialFeatureType: 'Point',
+		srid: 4326,
+		nullable: true,
+	})
+	lastLocation!: GeoPoint | null;
+
+	@Column({ type: 'timestamptz', nullable: true })
+	lastLocationAt!: Date | null;
 }

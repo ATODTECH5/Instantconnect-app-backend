@@ -21,6 +21,7 @@ import type { MessageResponseDto } from './dto/message-response.dto';
 /** Sent to everyone in a thread except the author, who already has it. */
 export const MESSAGE_CREATED = 'message.created';
 export const MEETUP_UPDATED = 'meetup.updated';
+export const MEETUP_LOCATION = 'meetup.location';
 
 /** The other party is composing. Never persisted: it is only true while it is true. */
 export const TYPING = 'conversation.typing';
@@ -219,6 +220,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 	 */
 	broadcastMeetup(userId: string, meetup: unknown): void {
 		this.server?.to(userRoomFor(userId)).emit(MEETUP_UPDATED, { meetup });
+	}
+
+	/**
+	 * A position fix, sent only to the one account allowed to see it. Kept
+	 * apart from `meetup.updated` because fixes arrive every few seconds and
+	 * the full meetup payload would be wasteful at that rate.
+	 */
+	broadcastLocation(userId: string, fix: unknown): void {
+		this.server?.to(userRoomFor(userId)).emit(MEETUP_LOCATION, fix);
 	}
 
 	/**
