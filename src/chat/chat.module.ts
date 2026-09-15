@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { authConfig } from '../config/configuration';
+import { BlocksModule } from '../blocks/blocks.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PresenceModule } from '../presence/presence.module';
 import { StorageModule } from '../storage/storage.module';
@@ -21,6 +22,7 @@ import { Message } from './entities/message.entity';
  */
 @Module({
 	imports: [
+		BlocksModule,
 		TypeOrmModule.forFeature([
 			Conversation,
 			ConversationParticipant,

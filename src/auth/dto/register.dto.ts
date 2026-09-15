@@ -18,7 +18,7 @@ import { IsDateOfBirth } from './date-of-birth.decorator';
 import { IsStrongPassword } from './strong-password.decorator';
 
 /** Local 0XXXXXXXXXX or international +234XXXXXXXXXX, matching the client's rule. */
-const NIGERIAN_PHONE = /^(?:0|\+?234)(?:7[01]|8[01]|9[01])\d{8}$/;
+export const NIGERIAN_PHONE = /^(?:0|\+?234)(?:7[01]|8[01]|9[01])\d{8}$/;
 
 export class RegisterDto {
 	@ApiProperty({ example: 'Ada Lovelace', minLength: 2, maxLength: 80 })

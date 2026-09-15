@@ -9,7 +9,7 @@ import { Resend } from 'resend';
 
 import { authConfig, mailConfig } from '../config/configuration';
 import { codeEmail, type CodeEmailKind } from './code-email';
-import { Mailer, type PlainEmail } from './mailer';
+import { type AccountCodeKind, Mailer, type PlainEmail } from './mailer';
 
 @Injectable()
 export class ResendMailer extends Mailer {
@@ -40,6 +40,15 @@ export class ResendMailer extends Mailer {
 		code: string,
 	): Promise<void> {
 		return this.deliver('password-reset', to, firstName, code);
+	}
+
+	sendAccountCode(
+		kind: AccountCodeKind,
+		to: string,
+		firstName: string,
+		code: string,
+	): Promise<void> {
+		return this.deliver(kind, to, firstName, code);
 	}
 
 	async sendSafetyCheckIn(to: string, email: PlainEmail): Promise<void> {

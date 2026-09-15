@@ -31,5 +31,7 @@ import { VerificationService } from './verification.service';
 	],
 	controllers: [AuthController],
 	providers: [AuthService, TokensService, VerificationService, JwtStrategy],
+	// Settings reuses the code issuing and the code table for its own purposes.
+	exports: [VerificationService],
 })
 export class AuthModule {}

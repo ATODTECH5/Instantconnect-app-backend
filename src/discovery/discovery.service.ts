@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import { PageInfoDto } from '../common/dto/pagination.dto';
+import { BlocksService } from '../blocks/blocks.service';
 import { ConnectionsService } from '../connections/connections.service';
 import { Storage } from '../storage/storage';
 import {
@@ -63,6 +64,7 @@ export class DiscoveryService {
 			.andWhere('user.status = :active')
 			.andWhere('user.location IS NOT NULL')
 			.andWhere(`ST_DWithin(user.location, ${ORIGIN}, :radius)`)
+			.andWhere(BlocksService.hiddenFromViewerClause('user', 'viewerId'))
 			.setParameters(parameters);
 
 		if (query.categoryId) {
@@ -135,8 +137,10 @@ export class DiscoveryService {
 			.addSelect(`ST_Distance(user.location, ${ORIGIN})`, 'distance_m')
 			.where('user.id = :personId')
 			.andWhere('user.status = :active')
+			.andWhere(BlocksService.hiddenFromViewerClause('user', 'viewerId'))
 			.setParameters({
 				personId,
+				viewerId,
 				active: UserStatus.Active,
 				lat: origin.latitude,
 				lng: origin.longitude,

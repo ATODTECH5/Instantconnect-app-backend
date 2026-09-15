@@ -62,6 +62,9 @@ export class UserResponseDto {
 	@ApiProperty({ example: false })
 	biometricsEnabled: boolean;
 
+	@ApiProperty({ example: false })
+	twoFactorEnabled: boolean;
+
 	@ApiProperty({
 		type: LookupResponseDto,
 		nullable: true,
@@ -84,6 +87,7 @@ export class UserResponseDto {
 		this.isEmailVerified = user.emailVerifiedAt !== null;
 		this.pinEnabled = user.pinEnabled;
 		this.biometricsEnabled = user.biometricsEnabled;
+		this.twoFactorEnabled = user.twoFactorEnabled;
 		this.category = user.category
 			? new LookupResponseDto(user.category)
 			: null;

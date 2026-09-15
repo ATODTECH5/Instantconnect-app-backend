@@ -14,6 +14,7 @@ import {
 	type PaginationQueryDto,
 } from '../common/dto/pagination.dto';
 import { ChatGateway } from '../chat/chat.gateway';
+import { BlocksService } from '../blocks/blocks.service';
 import { ChatService } from '../chat/chat.service';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -48,6 +49,7 @@ export class ConnectionsService {
 		private readonly chat: ChatService,
 		private readonly notifications: NotificationsService,
 		private readonly gateway: ChatGateway,
+		private readonly blocks: BlocksService,
 	) {}
 
 	/**
@@ -72,6 +74,15 @@ export class ConnectionsService {
 		});
 
 		if (!addressee) {
+			throw new NotFoundException({
+				code: 'USER_NOT_FOUND',
+				message: 'That person is no longer available.',
+			});
+		}
+
+		// The same answer either way round, so a blocked person cannot learn
+		// they were blocked from the shape of the refusal.
+		if (await this.blocks.isBlockedEitherWay(requesterId, addresseeId)) {
 			throw new NotFoundException({
 				code: 'USER_NOT_FOUND',
 				message: 'That person is no longer available.',

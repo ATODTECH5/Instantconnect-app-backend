@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 
 import { appConfig } from '../config/configuration';
-import { Mailer, type PlainEmail } from './mailer';
+import { type AccountCodeKind, Mailer, type PlainEmail } from './mailer';
 
 /**
  * Development stand in: prints the code so the mobile app's verification and
@@ -34,6 +34,15 @@ export class LoggerMailer extends Mailer {
 		code: string,
 	): Promise<void> {
 		return this.deliver('password reset', to, firstName, code);
+	}
+
+	sendAccountCode(
+		kind: AccountCodeKind,
+		to: string,
+		firstName: string,
+		code: string,
+	): Promise<void> {
+		return this.deliver(kind.replace('-', ' '), to, firstName, code);
 	}
 
 	sendSafetyCheckIn(to: string, email: PlainEmail): Promise<void> {

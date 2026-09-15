@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
 import { Storage } from '../storage/storage';
+import { BlocksService } from '../blocks/blocks.service';
 import { PresenceRegistry } from '../presence/presence-registry';
 import { ChatGateway } from './chat.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -98,6 +99,12 @@ describe('ChatService', () => {
 					useValue: { create: jest.fn().mockResolvedValue({}) },
 				},
 				{ provide: PresenceRegistry, useValue: new PresenceRegistry() },
+				{
+					provide: BlocksService,
+					useValue: {
+						isBlockedEitherWay: jest.fn().mockResolvedValue(false),
+					},
+				},
 				{
 					provide: DataSource,
 					useValue: {

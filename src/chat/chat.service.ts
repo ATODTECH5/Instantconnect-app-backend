@@ -1,5 +1,6 @@
 import {
 	BadRequestException,
+	ForbiddenException,
 	Injectable,
 	Logger,
 	NotFoundException,
@@ -15,6 +16,7 @@ import { ChatGateway } from './chat.gateway';
 import { MeetupResponseDto } from '../meetups/dto/meetup-response.dto';
 import type { Meetup } from '../meetups/entities/meetup.entity';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
+import { BlocksService } from '../blocks/blocks.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Storage, type UploadSignature } from '../storage/storage';
 import { AVATAR_POSITION } from '../users/entities/user-photo.entity';
@@ -61,6 +63,7 @@ export class ChatService {
 		private readonly dataSource: DataSource,
 		private readonly gateway: ChatGateway,
 		private readonly presence: PresenceRegistry,
+		private readonly blocks: BlocksService,
 	) {}
 
 	/**
@@ -213,6 +216,7 @@ export class ChatService {
 		input: SendMessageDto,
 	): Promise<MessageResponseDto> {
 		await this.membershipOrThrow(viewerId, conversationId);
+		await this.assertNotBlocked(viewerId, conversationId);
 
 		const { body, mediaStorageId } = input;
 
@@ -333,6 +337,30 @@ export class ChatService {
 	 * someone asking for a thread that does not exist, so the endpoint cannot be
 	 * used to discover who talks to whom.
 	 */
+	/**
+	 * A thread outlives a block, since the history is both parties' to keep,
+	 * but nothing new travels along it in either direction.
+	 */
+	private async assertNotBlocked(
+		viewerId: string,
+		conversationId: string,
+	): Promise<void> {
+		const other = await this.participants.findOne({
+			where: { conversationId, userId: Not(viewerId) },
+			select: { userId: true },
+		});
+
+		if (
+			other &&
+			(await this.blocks.isBlockedEitherWay(viewerId, other.userId))
+		) {
+			throw new ForbiddenException({
+				code: 'BLOCKED',
+				message: 'You cannot message this person.',
+			});
+		}
+	}
+
 	private async membershipOrThrow(
 		viewerId: string,
 		conversationId: string,

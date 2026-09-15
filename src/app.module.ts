@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
+import { BlocksModule } from './blocks/blocks.module';
 import { ChatModule } from './chat/chat.module';
 import { ConnectionsModule } from './connections/connections.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -21,6 +22,7 @@ import { PresenceInterceptor } from './presence/presence.interceptor';
 import { PresenceModule } from './presence/presence.module';
 import { ReferenceModule } from './reference/reference.module';
 import { SafetyModule } from './safety/safety.module';
+import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
 import { UsersModule } from './users/users.module';
 
@@ -46,6 +48,8 @@ import { UsersModule } from './users/users.module';
 		ReferenceModule,
 		UsersModule,
 		AuthModule,
+		SettingsModule,
+		BlocksModule,
 		ConnectionsModule,
 		ChatModule,
 		NotificationsModule,

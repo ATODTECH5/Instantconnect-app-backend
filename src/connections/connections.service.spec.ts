@@ -7,6 +7,7 @@ import {
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
+import { BlocksService } from '../blocks/blocks.service';
 import { ChatGateway } from '../chat/chat.gateway';
 import { ChatService } from '../chat/chat.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -83,6 +84,12 @@ describe('ConnectionsService', () => {
 				{
 					provide: ChatGateway,
 					useValue: { broadcastNotification: jest.fn() },
+				},
+				{
+					provide: BlocksService,
+					useValue: {
+						isBlockedEitherWay: jest.fn().mockResolvedValue(false),
+					},
 				},
 			],
 		}).compile();

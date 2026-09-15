@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { BlocksModule } from '../blocks/blocks.module';
 import { ChatModule } from '../chat/chat.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
@@ -13,6 +14,7 @@ import { Connection } from './entities/connection.entity';
 	imports: [
 		TypeOrmModule.forFeature([Connection, User]),
 		StorageModule,
+		BlocksModule,
 		ChatModule,
 		NotificationsModule,
 	],

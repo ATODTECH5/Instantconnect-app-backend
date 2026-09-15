@@ -14,4 +14,13 @@ export class UpdateSecurityDto {
 	@IsOptional()
 	@IsBoolean()
 	biometricsEnabled?: boolean;
+
+	@ApiPropertyOptional({
+		description:
+			'The Password & Security toggle. A preference only: nothing challenges for a second factor yet.',
+		example: false,
+	})
+	@IsOptional()
+	@IsBoolean()
+	twoFactorEnabled?: boolean;
 }

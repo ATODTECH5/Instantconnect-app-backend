@@ -92,6 +92,31 @@ export class User extends BaseEntity {
 	@Column({ default: false })
 	biometricsEnabled!: boolean;
 
+	/**
+	 * Settings toggle only. Nothing challenges for a second factor yet; the
+	 * flag records the preference so the switch is honest when enforcement
+	 * arrives.
+	 */
+	@Column({ default: false })
+	twoFactorEnabled!: boolean;
+
+	/**
+	 * A new address or number waits here until its code is confirmed, so a
+	 * typo cannot lock the account out of the value it still signs in with.
+	 */
+	@Column({ type: 'varchar', length: 255, nullable: true })
+	pendingEmail!: string | null;
+
+	@Column({ type: 'varchar', length: 20, nullable: true })
+	pendingPhone!: string | null;
+
+	/** Why the account asked to be deleted. Kept for the product, not the user. */
+	@Column({ type: 'varchar', length: 64, nullable: true })
+	deletionReason!: string | null;
+
+	@Column({ type: 'text', nullable: true })
+	deletionDetails!: string | null;
+
 	@Column({ type: 'timestamptz', nullable: true })
 	lastSignedInAt!: Date | null;
 

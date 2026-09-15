@@ -1,4 +1,9 @@
-export type CodeEmailKind = 'email-verification' | 'password-reset';
+export type CodeEmailKind =
+	| 'email-verification'
+	| 'password-reset'
+	| 'email-change'
+	| 'phone-change'
+	| 'account-deletion';
 
 export type CodeEmail = {
 	subject: string;
@@ -25,6 +30,27 @@ const COPY: Record<
 		lead: 'Use this code to choose a new password.',
 		warning:
 			'If you did not ask to reset your password, ignore this email and your password stays as it is.',
+	},
+	'email-change': {
+		subject: 'Confirm your new Instant Connect email',
+		heading: 'Confirm your new email',
+		lead: 'Use this code to make this address the one on your account.',
+		warning:
+			'If you did not ask to change your Instant Connect email, ignore this email and nothing changes.',
+	},
+	'phone-change': {
+		subject: 'Confirm your new Instant Connect phone number',
+		heading: 'Confirm your new phone number',
+		lead: 'Use this code to make the new number the one on your account.',
+		warning:
+			'If you did not ask to change your phone number, ignore this email and your number stays as it is.',
+	},
+	'account-deletion': {
+		subject: 'Confirm deleting your Instant Connect account',
+		heading: 'Delete your account',
+		lead: 'Use this code to confirm that you want your account deleted. This cannot be undone.',
+		warning:
+			'If you did not ask to delete your account, ignore this email and your account stays as it is. You may also want to change your password.',
 	},
 };
 
