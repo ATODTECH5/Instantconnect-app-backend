@@ -67,6 +67,11 @@ function describe(
 				title: 'Meetup cancelled',
 				body: `${who} cancelled your meetup`,
 			};
+		case NotificationKind.ReferralJoined:
+			return {
+				title: 'Your friend joined',
+				body: `${who} registered with your code. You both unlocked community privileges`,
+			};
 	}
 }
 
@@ -90,7 +95,7 @@ export class NotificationResponseDto {
 		nullable: true,
 		format: 'uuid',
 		description:
-			'Conversation id for a message, connection id for the connection kinds.',
+			'Conversation id for a message, connection id for the connection kinds, referral id for referral_joined.',
 	})
 	subjectId: string | null;
 

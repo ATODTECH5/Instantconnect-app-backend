@@ -21,9 +21,11 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { PresenceInterceptor } from './presence/presence.interceptor';
 import { PresenceModule } from './presence/presence.module';
 import { ReferenceModule } from './reference/reference.module';
+import { ReferralsModule } from './referrals/referrals.module';
 import { SafetyModule } from './safety/safety.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
+import { SupportModule } from './support/support.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -50,6 +52,8 @@ import { UsersModule } from './users/users.module';
 		AuthModule,
 		SettingsModule,
 		BlocksModule,
+		ReferralsModule,
+		SupportModule,
 		ConnectionsModule,
 		ChatModule,
 		NotificationsModule,

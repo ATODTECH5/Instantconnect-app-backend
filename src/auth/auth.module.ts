@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { MailModule } from '../mail/mail.module';
+import { ReferralsModule } from '../referrals/referrals.module';
 import { UsersModule } from '../users/users.module';
 import { authConfig } from '../config/configuration';
 import { AuthController } from './auth.controller';
@@ -28,6 +29,7 @@ import { VerificationService } from './verification.service';
 		}),
 		UsersModule,
 		MailModule,
+		ReferralsModule,
 	],
 	controllers: [AuthController],
 	providers: [AuthService, TokensService, VerificationService, JwtStrategy],

@@ -117,6 +117,13 @@ export class User extends BaseEntity {
 	@Column({ type: 'text', nullable: true })
 	deletionDetails!: string | null;
 
+	/**
+	 * Minted the first time the account opens Refer a Friend, so it is null
+	 * until then. Unique among the codes that exist.
+	 */
+	@Column({ type: 'varchar', length: 16, nullable: true })
+	referralCode!: string | null;
+
 	@Column({ type: 'timestamptz', nullable: true })
 	lastSignedInAt!: Date | null;
 

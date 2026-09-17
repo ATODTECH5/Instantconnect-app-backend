@@ -17,6 +17,7 @@ import {
 } from '../common/utils/hashing.util';
 import { toE164Nigerian } from '../common/utils/normalise.util';
 import { Mailer } from '../mail/mailer';
+import { ReferralsService } from '../referrals/referrals.service';
 import { User } from '../users/entities/user.entity';
 import { UserStatus } from '../users/entities/user-status.enum';
 import { UsersService } from '../users/users.service';
@@ -48,6 +49,7 @@ export class AuthService {
 		private readonly tokens: TokensService,
 		private readonly verification: VerificationService,
 		private readonly mailer: Mailer,
+		private readonly referrals: ReferralsService,
 		private readonly jwt: JwtService,
 		private readonly dataSource: DataSource,
 		@Inject(authConfig.KEY)
@@ -71,6 +73,20 @@ export class AuthService {
 			});
 		}
 
+		// Checked before the account exists, so a mistyped code costs a retry
+		// rather than an account with no referral behind it.
+		const referrerId = dto.referralCode
+			? await this.referrals.findReferrerIdByCode(dto.referralCode)
+			: null;
+
+		if (dto.referralCode && !referrerId) {
+			throw new BadRequestException({
+				code: 'INVALID_REFERRAL_CODE',
+				message:
+					'That referral code is not valid. Check it and try again.',
+			});
+		}
+
 		const user = await this.users.create({
 			fullName: dto.fullName,
 			email: dto.email,
@@ -78,6 +94,8 @@ export class AuthService {
 			passwordHash: await hashSecret(dto.password),
 			dateOfBirth: dto.dateOfBirth,
 		});
+
+		if (referrerId) await this.referrals.record(referrerId, user.id);
 
 		await this.sendCode(user, VerificationPurpose.EmailVerification);
 
@@ -112,6 +130,7 @@ export class AuthService {
 
 		await this.verification.consume(record.id);
 		await this.users.markEmailVerified(user.id);
+		await this.referrals.markJoined(user.id);
 
 		return this.startSession(
 			await this.users.getByIdOrFail(user.id),

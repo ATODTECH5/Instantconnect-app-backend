@@ -9,6 +9,7 @@ import { DataSource } from 'typeorm';
 
 import { hashSecret, verifySecret } from '../common/utils/hashing.util';
 import { Mailer } from '../mail/mailer';
+import { ReferralsService } from '../referrals/referrals.service';
 import type { User } from '../users/entities/user.entity';
 import { KycStatus } from '../users/entities/kyc-status.enum';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -113,6 +114,14 @@ describe('AuthService', () => {
 				{ provide: TokensService, useValue: tokens },
 				{ provide: VerificationService, useValue: verification },
 				{ provide: Mailer, useValue: mailer },
+				{
+					provide: ReferralsService,
+					useValue: {
+						findReferrerIdByCode: jest.fn().mockResolvedValue(null),
+						record: jest.fn().mockResolvedValue(undefined),
+						markJoined: jest.fn().mockResolvedValue(undefined),
+					},
+				},
 				{ provide: JwtService, useValue: jwt },
 				{ provide: DataSource, useValue: { transaction: jest.fn() } },
 				{

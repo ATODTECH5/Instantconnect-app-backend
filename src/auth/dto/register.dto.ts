@@ -1,7 +1,8 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
 	Equals,
 	IsBoolean,
+	IsOptional,
 	IsString,
 	Matches,
 	MaxLength,
@@ -71,4 +72,16 @@ export class RegisterDto {
 	@IsBoolean()
 	@Equals(true, { message: 'Accept the terms to continue' })
 	termsAccepted: boolean;
+
+	@ApiPropertyOptional({
+		description:
+			'A friend’s referral code. Refused as INVALID_REFERRAL_CODE when no account holds it.',
+		example: 'HALIMA4001',
+		maxLength: 16,
+	})
+	@IsOptional()
+	@IsString()
+	@TrimmedString()
+	@MaxLength(16, { message: 'That referral code is too long' })
+	referralCode?: string;
 }

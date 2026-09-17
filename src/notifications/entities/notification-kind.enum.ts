@@ -12,4 +12,6 @@ export enum NotificationKind {
 	MeetupDeclined = 'meetup_declined',
 	/** A scheduled meetup was withdrawn by the other party. */
 	MeetupCancelled = 'meetup_cancelled',
+	/** Someone who registered with your referral code has verified their email. */
+	ReferralJoined = 'referral_joined',
 }
