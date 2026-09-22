@@ -72,6 +72,16 @@ function describe(
 				title: 'Your friend joined',
 				body: `${who} registered with your code. You both unlocked community privileges`,
 			};
+		case NotificationKind.KycApproved:
+			return {
+				title: 'Identity verified',
+				body: 'Your documents were approved. The verified badge is now on your profile',
+			};
+		case NotificationKind.KycRejected:
+			return {
+				title: 'Verification unsuccessful',
+				body: 'We could not verify your documents. Open KYC Verification to see why and try again',
+			};
 	}
 }
 
@@ -95,7 +105,7 @@ export class NotificationResponseDto {
 		nullable: true,
 		format: 'uuid',
 		description:
-			'Conversation id for a message, connection id for the connection kinds, referral id for referral_joined.',
+			'Conversation id for a message, connection id for the connection kinds, referral id for referral_joined, submission id for the kyc kinds.',
 	})
 	subjectId: string | null;
 

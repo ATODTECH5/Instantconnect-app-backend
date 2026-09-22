@@ -20,6 +20,18 @@ export class UnconfiguredStorage extends Storage {
 		throw this.notConfigured();
 	}
 
+	buildKycStorageId(): string {
+		throw this.notConfigured();
+	}
+
+	isKycStorageId(): boolean {
+		throw this.notConfigured();
+	}
+
+	buildAuthenticatedUrl(storageId: string): string {
+		return storageId;
+	}
+
 	createUploadSignature(): UploadSignature {
 		throw this.notConfigured();
 	}

@@ -26,6 +26,7 @@ import { SafetyModule } from './safety/safety.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
 import { SupportModule } from './support/support.module';
+import { KycModule } from './kyc/kyc.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
@@ -54,6 +55,7 @@ import { UsersModule } from './users/users.module';
 		BlocksModule,
 		ReferralsModule,
 		SupportModule,
+		KycModule,
 		ConnectionsModule,
 		ChatModule,
 		NotificationsModule,

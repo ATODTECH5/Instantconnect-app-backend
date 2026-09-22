@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import type { UploadSignature } from '../../storage/storage';
 
@@ -35,6 +35,13 @@ export class UploadSignatureResponseDto {
 	})
 	transformation: string;
 
+	@ApiPropertyOptional({
+		description:
+			'Present for identity documents. Send verbatim as the type field; it is signed, so omitting it fails the upload.',
+		example: 'authenticated',
+	})
+	deliveryType?: string;
+
 	constructor(signature: UploadSignature) {
 		this.uploadUrl = signature.uploadUrl;
 		this.apiKey = signature.apiKey;
@@ -42,5 +49,6 @@ export class UploadSignatureResponseDto {
 		this.signature = signature.signature;
 		this.storageId = signature.storageId;
 		this.transformation = signature.transformation;
+		if (signature.deliveryType) this.deliveryType = signature.deliveryType;
 	}
 }

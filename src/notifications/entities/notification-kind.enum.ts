@@ -14,4 +14,8 @@ export enum NotificationKind {
 	MeetupCancelled = 'meetup_cancelled',
 	/** Someone who registered with your referral code has verified their email. */
 	ReferralJoined = 'referral_joined',
+	/** An admin approved your identity documents; the badge is on. */
+	KycApproved = 'kyc_approved',
+	/** An admin rejected them; the reason is on the KYC screen. */
+	KycRejected = 'kyc_rejected',
 }

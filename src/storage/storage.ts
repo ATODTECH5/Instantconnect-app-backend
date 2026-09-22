@@ -9,7 +9,10 @@ export abstract class Storage {
 	 * travels through the API. The id is chosen here rather than by the caller,
 	 * which is what stops a signature being reused to overwrite another asset.
 	 */
-	abstract createUploadSignature(storageId: string): UploadSignature;
+	abstract createUploadSignature(
+		storageId: string,
+		options?: UploadOptions,
+	): UploadSignature;
 
 	/**
 	 * Delivery URL for a stored asset. Never the original: an untouched phone
@@ -19,7 +22,16 @@ export abstract class Storage {
 	abstract buildUrl(storageId: string, variant: PhotoVariant): string;
 
 	/** Null when nothing was ever uploaded against the id. */
-	abstract findAsset(storageId: string): Promise<StoredAsset | null>;
+	abstract findAsset(
+		storageId: string,
+		options?: UploadOptions,
+	): Promise<StoredAsset | null>;
+
+	/**
+	 * A signed URL for an asset stored with `authenticated: true`. Only ever
+	 * handed to an admin reviewing it; the plain URL scheme refuses these.
+	 */
+	abstract buildAuthenticatedUrl(storageId: string): string;
 
 	abstract delete(storageId: string): Promise<void>;
 
@@ -47,7 +59,23 @@ export abstract class Storage {
 		conversationId: string,
 		senderId: string,
 	): boolean;
+
+	/**
+	 * Identity documents and the liveness selfie. Under the account rather than
+	 * the submission, since the id is minted before the submission row exists.
+	 */
+	abstract buildKycStorageId(userId: string, document: string): string;
+
+	abstract isKycStorageId(storageId: string, userId: string): boolean;
 }
+
+export type UploadOptions = {
+	/**
+	 * Stored so that no unsigned URL can ever serve it. Identity documents go
+	 * this way; a profile photo is public by design and does not.
+	 */
+	authenticated?: boolean;
+};
 
 /**
  * `thumbnail` covers avatars and the edit screen's gallery squares; `full` is
@@ -67,6 +95,11 @@ export type UploadSignature = {
 	 * changing it invalidates the signature, which is what caps the stored file.
 	 */
 	transformation: string;
+	/**
+	 * Present for authenticated uploads. Sent verbatim as `type`, and part of
+	 * what was signed, so a client cannot quietly downgrade a document to public.
+	 */
+	deliveryType?: string;
 };
 
 export type StoredAsset = {

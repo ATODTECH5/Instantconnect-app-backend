@@ -9,6 +9,7 @@ import {
 	Storage,
 	type PhotoVariant,
 	type StoredAsset,
+	type UploadOptions,
 	type UploadSignature,
 } from './storage';
 
@@ -28,6 +29,8 @@ const VARIANTS: Record<PhotoVariant, string> = {
 	thumbnail: 'f_auto,q_auto,w_256,h_256,c_fill,g_face',
 	full: 'f_auto,q_auto,w_900,c_limit',
 };
+
+const AUTHENTICATED = 'authenticated';
 
 export class CloudinaryStorage extends Storage {
 	private readonly logger = new Logger(CloudinaryStorage.name);
@@ -65,13 +68,26 @@ export class CloudinaryStorage extends Storage {
 		);
 	}
 
-	createUploadSignature(storageId: string): UploadSignature {
+	buildKycStorageId(userId: string, document: string): string {
+		return `${this.config.kycFolder}/${userId}/${document}-${randomUUID()}`;
+	}
+
+	isKycStorageId(storageId: string, userId: string): boolean {
+		return storageId.startsWith(`${this.config.kycFolder}/${userId}/`);
+	}
+
+	createUploadSignature(
+		storageId: string,
+		options: UploadOptions = {},
+	): UploadSignature {
 		const timestamp = Math.floor(Date.now() / 1000);
+		const deliveryType = options.authenticated ? AUTHENTICATED : undefined;
 		const signature = cloudinary.utils.api_sign_request(
 			{
 				public_id: storageId,
 				timestamp,
 				transformation: INCOMING_TRANSFORMATION,
+				type: deliveryType,
 			},
 			this.config.apiSecret as string,
 		);
@@ -83,17 +99,43 @@ export class CloudinaryStorage extends Storage {
 			signature,
 			storageId,
 			transformation: INCOMING_TRANSFORMATION,
+			...(deliveryType ? { deliveryType } : {}),
 		};
+	}
+
+	/**
+	 * Signed rather than expiring: Cloudinary's expiring links are for
+	 * downloads of the original, and a reviewer wants an inline image. The URL
+	 * only ever reaches an admin.
+	 */
+	buildAuthenticatedUrl(storageId: string): string {
+		return cloudinary.url(storageId, {
+			type: AUTHENTICATED,
+			sign_url: true,
+			secure: true,
+			transformation: [
+				{
+					fetch_format: 'auto',
+					quality: 'auto',
+					width: 1200,
+					crop: 'limit',
+				},
+			],
+		});
 	}
 
 	buildUrl(storageId: string, variant: PhotoVariant): string {
 		return `https://res.cloudinary.com/${this.config.cloudName}/image/upload/${VARIANTS[variant]}/${storageId}`;
 	}
 
-	async findAsset(storageId: string): Promise<StoredAsset | null> {
+	async findAsset(
+		storageId: string,
+		options: UploadOptions = {},
+	): Promise<StoredAsset | null> {
 		try {
 			await cloudinary.api.resource(storageId, {
 				resource_type: 'image',
+				...(options.authenticated ? { type: AUTHENTICATED } : {}),
 			});
 
 			return { storageId };
