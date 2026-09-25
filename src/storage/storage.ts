@@ -67,6 +67,14 @@ export abstract class Storage {
 	abstract buildKycStorageId(userId: string, document: string): string;
 
 	abstract isKycStorageId(storageId: string, userId: string): boolean;
+
+	/**
+	 * Event covers live under the host rather than the event, because the
+	 * cover is uploaded before the event row exists.
+	 */
+	abstract buildEventCoverStorageId(hostId: string): string;
+
+	abstract isEventCoverStorageId(storageId: string, hostId: string): boolean;
 }
 
 export type UploadOptions = {

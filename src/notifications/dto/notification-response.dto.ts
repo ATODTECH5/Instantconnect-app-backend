@@ -82,6 +82,11 @@ function describe(
 				title: 'Verification unsuccessful',
 				body: 'We could not verify your documents. Open KYC Verification to see why and try again',
 			};
+		case NotificationKind.EventInvite:
+			return {
+				title: 'Event invitation',
+				body: `${who} invited you to an event they are hosting`,
+			};
 	}
 }
 
@@ -105,7 +110,7 @@ export class NotificationResponseDto {
 		nullable: true,
 		format: 'uuid',
 		description:
-			'Conversation id for a message, connection id for the connection kinds, referral id for referral_joined, submission id for the kyc kinds.',
+			'Conversation id for a message, connection id for the connection kinds, referral id for referral_joined, submission id for the kyc kinds, event id for event_invite.',
 	})
 	subjectId: string | null;
 

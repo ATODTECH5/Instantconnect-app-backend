@@ -18,4 +18,6 @@ export enum NotificationKind {
 	KycApproved = 'kyc_approved',
 	/** An admin rejected them; the reason is on the KYC screen. */
 	KycRejected = 'kyc_rejected',
+	/** A connection invited you to an event they are hosting. */
+	EventInvite = 'event_invite',
 }

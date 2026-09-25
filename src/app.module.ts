@@ -14,6 +14,7 @@ import { LoggingModule } from './common/logging/logging.module';
 import { configurations, throttleConfig } from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { DiscoveryModule } from './discovery/discovery.module';
+import { EventsModule } from './events/events.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { MeetupsModule } from './meetups/meetups.module';
@@ -61,6 +62,7 @@ import { UsersModule } from './users/users.module';
 		NotificationsModule,
 		MeetupsModule,
 		SafetyModule,
+		EventsModule,
 		DiscoveryModule,
 		PresenceModule,
 		HealthModule,

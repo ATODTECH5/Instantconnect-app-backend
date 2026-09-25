@@ -102,6 +102,7 @@ export const envSchema = z.object({
 	CLOUDINARY_CHAT_FOLDER: z.string().default('instant-connect/chat'),
 	/** Identity documents. Every asset under it is stored authenticated, never public. */
 	CLOUDINARY_KYC_FOLDER: z.string().default('instant-connect/kyc'),
+	CLOUDINARY_EVENTS_FOLDER: z.string().default('instant-connect/events'),
 
 	THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 	THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),

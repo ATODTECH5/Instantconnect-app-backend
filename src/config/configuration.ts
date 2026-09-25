@@ -66,6 +66,7 @@ export const storageConfig = registerAs('storage', () => {
 		uploadFolder: e.CLOUDINARY_UPLOAD_FOLDER,
 		chatFolder: e.CLOUDINARY_CHAT_FOLDER,
 		kycFolder: e.CLOUDINARY_KYC_FOLDER,
+		eventsFolder: e.CLOUDINARY_EVENTS_FOLDER,
 		isConfigured: Boolean(
 			e.CLOUDINARY_CLOUD_NAME &&
 			e.CLOUDINARY_API_KEY &&

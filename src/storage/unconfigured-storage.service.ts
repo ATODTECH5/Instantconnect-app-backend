@@ -28,6 +28,14 @@ export class UnconfiguredStorage extends Storage {
 		throw this.notConfigured();
 	}
 
+	buildEventCoverStorageId(): string {
+		throw this.notConfigured();
+	}
+
+	isEventCoverStorageId(): boolean {
+		throw this.notConfigured();
+	}
+
 	buildAuthenticatedUrl(storageId: string): string {
 		return storageId;
 	}

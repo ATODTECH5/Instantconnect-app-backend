@@ -76,6 +76,16 @@ export class CloudinaryStorage extends Storage {
 		return storageId.startsWith(`${this.config.kycFolder}/${userId}/`);
 	}
 
+	buildEventCoverStorageId(hostId: string): string {
+		return `${this.config.eventsFolder}/${hostId}/cover-${randomUUID()}`;
+	}
+
+	isEventCoverStorageId(storageId: string, hostId: string): boolean {
+		return storageId.startsWith(
+			`${this.config.eventsFolder}/${hostId}/cover-`,
+		);
+	}
+
 	createUploadSignature(
 		storageId: string,
 		options: UploadOptions = {},
