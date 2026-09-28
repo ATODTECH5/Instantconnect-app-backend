@@ -8,6 +8,7 @@ import { MailModule } from '../mail/mail.module';
 import { ReferralsModule } from '../referrals/referrals.module';
 import { UsersModule } from '../users/users.module';
 import { authConfig } from '../config/configuration';
+import { AdminAuthController } from './admin-auth.controller';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -31,7 +32,7 @@ import { VerificationService } from './verification.service';
 		MailModule,
 		ReferralsModule,
 	],
-	controllers: [AuthController],
+	controllers: [AuthController, AdminAuthController],
 	providers: [AuthService, TokensService, VerificationService, JwtStrategy],
 	// Settings reuses the code issuing and the code table for its own purposes.
 	exports: [VerificationService],

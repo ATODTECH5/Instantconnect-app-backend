@@ -19,9 +19,11 @@ import { toE164Nigerian } from '../common/utils/normalise.util';
 import { Mailer } from '../mail/mailer';
 import { ReferralsService } from '../referrals/referrals.service';
 import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/entities/user-role.enum';
 import { UserStatus } from '../users/entities/user-status.enum';
 import { UsersService } from '../users/users.service';
 import { authConfig } from '../config/configuration';
+import { AdminSignInDto } from './dto/admin-sign-in.dto';
 import { EmailDto } from './dto/email.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
@@ -150,6 +152,38 @@ export class AuthService {
 		dto: SignInDto,
 		context: SessionContext,
 	): Promise<SessionResponseDto> {
+		const user = await this.authenticate(dto);
+
+		await this.users.recordSignIn(user.id);
+
+		return this.startSession(
+			await this.users.getByIdOrFail(user.id),
+			context,
+		);
+	}
+
+	/**
+	 * An account without an admin role gets the same answer as a wrong password,
+	 * so the dashboard cannot be used to find out which addresses are admins.
+	 * Admin sessions never use the long lived refresh token.
+	 */
+	async signInAdmin(
+		dto: AdminSignInDto,
+		context: SessionContext,
+	): Promise<SessionResponseDto> {
+		const user = await this.authenticate(dto);
+
+		if (user.role !== UserRole.Admin) throw this.invalidCredentials();
+
+		await this.users.recordSignIn(user.id);
+
+		return this.startSession(await this.users.getByIdOrFail(user.id), {
+			...context,
+			keepSignedIn: false,
+		});
+	}
+
+	private async authenticate(dto: AdminSignInDto): Promise<User> {
 		const user = await this.users.findByEmailForAuthentication(dto.email);
 
 		if (!user) {
@@ -176,12 +210,7 @@ export class AuthService {
 			});
 		}
 
-		await this.users.recordSignIn(user.id);
-
-		return this.startSession(
-			await this.users.getByIdOrFail(user.id),
-			context,
-		);
+		return user;
 	}
 
 	async refresh(

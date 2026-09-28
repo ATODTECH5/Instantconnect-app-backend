@@ -24,7 +24,8 @@
 		"migration:show": "npm run typeorm -- migration:show -d src/database/data-source.ts",
 		"migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts",
 		"migration:create": "npm run typeorm -- migration:create",
-		"seed:dev": "node --env-file=.env -r ts-node/register src/database/seeds/seed-dev-users.ts"
+		"seed:dev": "node --env-file=.env -r ts-node/register src/database/seeds/seed-dev-users.ts",
+		"admin:grant": "node --env-file=.env -r ts-node/register src/database/seeds/grant-admin.ts"
 	},
 	"dependencies": {
 		"@nestjs/common": "^11.0.1",
