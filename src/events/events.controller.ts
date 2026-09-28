@@ -1,6 +1,7 @@
 import {
 	Body,
 	Controller,
+	Delete,
 	Get,
 	HttpCode,
 	HttpStatus,
@@ -29,6 +30,8 @@ import {
 	EventDetailDto,
 	EventPageDto,
 	ListMyEventsQueryDto,
+	NearbyEventPageDto,
+	NearbyEventsQueryDto,
 	RecentVenueDto,
 } from './dto/event.dto';
 import { EventsService } from './events.service';
@@ -80,17 +83,31 @@ export class EventsController {
 	}
 
 	@ApiOperation({
-		summary: 'Events the viewer is hosting',
+		summary: 'Events the viewer is hosting, invited to, or going to',
 		description:
-			'Upcoming is soonest first and keeps an event until it ends; past is most recent first.',
+			'role=host (default) is hosting only; role=any adds events the viewer was invited to or joined. Upcoming is soonest first and keeps an event until it ends; past and all are most recent first.',
 	})
 	@ApiOkResponse({ type: EventPageDto })
 	@Get('mine')
 	listMine(
-		@CurrentUser('id') hostId: string,
+		@CurrentUser('id') viewerId: string,
 		@Query() query: ListMyEventsQueryDto,
 	): Promise<EventPageDto> {
-		return this.events.listMine(hostId, query);
+		return this.events.listMine(viewerId, query);
+	}
+
+	@ApiOperation({
+		summary: 'Public events near the viewer',
+		description:
+			'Events that have not ended, within radiusKm of the viewer’s saved location, soonest first. Empty when the viewer has no location.',
+	})
+	@ApiOkResponse({ type: NearbyEventPageDto })
+	@Get('nearby')
+	listNearby(
+		@CurrentUser('id') viewerId: string,
+		@Query() query: NearbyEventsQueryDto,
+	): Promise<NearbyEventPageDto> {
+		return this.events.listNearby(viewerId, query);
 	}
 
 	@ApiOperation({
@@ -102,6 +119,42 @@ export class EventsController {
 	@Get('recent-venues')
 	recentVenues(@CurrentUser('id') hostId: string): Promise<RecentVenueDto[]> {
 		return this.events.recentVenues(hostId);
+	}
+
+	@ApiOperation({
+		summary: 'Join a free event',
+		description:
+			'Idempotent. The host is notified the first time. Paid events are refused until checkout exists.',
+	})
+	@ApiOkResponse({ type: EventDetailDto })
+	@ApiBadRequestResponse({
+		description:
+			'EVENT_HOST_CANNOT_JOIN, EVENT_ENDED, EVENT_TICKETS_UNAVAILABLE',
+		type: ApiErrorDto,
+	})
+	@ApiNotFoundResponse({ description: 'EVENT_NOT_FOUND', type: ApiErrorDto })
+	@Post(':id/attendance')
+	@HttpCode(HttpStatus.OK)
+	join(
+		@CurrentUser('id') viewerId: string,
+		@Param('id', ParseUUIDPipe) id: string,
+	): Promise<EventDetailDto> {
+		return this.events.join(viewerId, id);
+	}
+
+	@ApiOperation({
+		summary: 'Stop going to an event',
+		description: 'Idempotent. Refused once the event has ended.',
+	})
+	@ApiOkResponse({ type: EventDetailDto })
+	@ApiBadRequestResponse({ description: 'EVENT_ENDED', type: ApiErrorDto })
+	@ApiNotFoundResponse({ description: 'EVENT_NOT_FOUND', type: ApiErrorDto })
+	@Delete(':id/attendance')
+	leave(
+		@CurrentUser('id') viewerId: string,
+		@Param('id', ParseUUIDPipe) id: string,
+	): Promise<EventDetailDto> {
+		return this.events.leave(viewerId, id);
 	}
 
 	@ApiOperation({

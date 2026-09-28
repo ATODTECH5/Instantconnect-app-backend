@@ -45,6 +45,7 @@ export class Event extends BaseEntity {
 	@Column({ type: 'varchar', length: 255, nullable: true })
 	venueAddress!: string | null;
 
+	@Index('IDX_events_venueLocation', { spatial: true })
 	@Column({
 		type: 'geography',
 		spatialFeatureType: 'Point',

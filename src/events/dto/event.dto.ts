@@ -24,6 +24,10 @@ import {
 	PageInfoDto,
 	PaginationQueryDto,
 } from '../../common/dto/pagination.dto';
+import {
+	DEFAULT_RADIUS_KM,
+	MAX_RADIUS_KM,
+} from '../../discovery/dto/discovery-query.dto';
 import { KycStatus } from '../../users/entities/kyc-status.enum';
 import type { User } from '../../users/entities/user.entity';
 import type { Event } from '../entities/event.entity';
@@ -39,7 +43,18 @@ export const MAX_INVITEES = 50;
 export const MAX_PRICE_MINOR = 1_000_000_000;
 
 /** Faces a list card shows before the rest collapse into "+N". */
-export const INVITEE_PREVIEW = 3;
+export const CARD_FACES = 3;
+
+/** Attendees the detail screen can lay out before "+N" takes over. */
+export const DETAIL_ATTENDEES = 12;
+
+/** Who is around an event, trimmed to what the viewer may see. */
+export type EventPeople = {
+	inviteeCount: number;
+	inviteePreview: EventPersonDto[];
+	attendeeCount: number;
+	attendeePreview: EventPersonDto[];
+};
 
 export class EventVenueDto {
 	@ApiProperty({ maxLength: 120, example: 'Cozee Space' })
@@ -146,6 +161,13 @@ export class CreateEventDto {
 export enum EventTimeframe {
 	Upcoming = 'upcoming',
 	Past = 'past',
+	All = 'all',
+}
+
+/** Hosting only, or every event the viewer hosts, was invited to, or joined. */
+export enum EventRole {
+	Host = 'host',
+	Any = 'any',
 }
 
 export class ListMyEventsQueryDto extends PaginationQueryDto {
@@ -157,6 +179,29 @@ export class ListMyEventsQueryDto extends PaginationQueryDto {
 	@IsOptional()
 	@IsEnum(EventTimeframe)
 	when: EventTimeframe = EventTimeframe.Upcoming;
+
+	@ApiPropertyOptional({
+		enum: EventRole,
+		enumName: 'EventRole',
+		default: EventRole.Host,
+	})
+	@IsOptional()
+	@IsEnum(EventRole)
+	role: EventRole = EventRole.Host;
+}
+
+export class NearbyEventsQueryDto extends PaginationQueryDto {
+	@ApiPropertyOptional({
+		minimum: 1,
+		maximum: MAX_RADIUS_KM,
+		default: DEFAULT_RADIUS_KM,
+	})
+	@Type(() => Number)
+	@IsInt()
+	@Min(1)
+	@Max(MAX_RADIUS_KM)
+	@IsOptional()
+	radiusKm: number = DEFAULT_RADIUS_KM;
 }
 
 export class EventPersonDto {
@@ -249,16 +294,20 @@ export class EventSummaryDto {
 
 	@ApiProperty({
 		type: [EventPersonDto],
-		description: `The first ${INVITEE_PREVIEW} invitees, for the card's faces.`,
+		description: `The first ${CARD_FACES} invitees. Only the host sees them; others get [].`,
 	})
 	inviteePreview: EventPersonDto[];
 
-	constructor(
-		event: Event,
-		coverUrl: string | null,
-		inviteeCount: number,
-		inviteePreview: EventPersonDto[],
-	) {
+	@ApiProperty()
+	attendeeCount: number;
+
+	@ApiProperty({
+		type: [EventPersonDto],
+		description: `The first ${CARD_FACES} people going, for the card's faces.`,
+	})
+	attendeePreview: EventPersonDto[];
+
+	constructor(event: Event, coverUrl: string | null, people: EventPeople) {
 		this.id = event.id;
 		this.title = event.title;
 		this.startsAt = event.startsAt;
@@ -270,8 +319,10 @@ export class EventSummaryDto {
 		this.priceMinor = event.priceMinor;
 		this.isPublic = event.isPublic;
 		this.coverUrl = coverUrl;
-		this.inviteeCount = inviteeCount;
-		this.inviteePreview = inviteePreview;
+		this.inviteeCount = people.inviteeCount;
+		this.inviteePreview = people.inviteePreview;
+		this.attendeeCount = people.attendeeCount;
+		this.attendeePreview = people.attendeePreview;
 	}
 }
 
@@ -283,6 +334,37 @@ export class EventPageDto {
 	page: PageInfoDto;
 
 	constructor(items: EventSummaryDto[], page: PageInfoDto) {
+		this.items = items;
+		this.page = page;
+	}
+}
+
+export class NearbyEventDto extends EventSummaryDto {
+	@ApiProperty({
+		description: 'Great circle distance from the viewer, in kilometres.',
+		example: 4.2,
+	})
+	distanceKm: number;
+
+	constructor(
+		event: Event,
+		coverUrl: string | null,
+		people: EventPeople,
+		distanceMetres: number,
+	) {
+		super(event, coverUrl, people);
+		this.distanceKm = Math.round(distanceMetres / 100) / 10;
+	}
+}
+
+export class NearbyEventPageDto {
+	@ApiProperty({ type: [NearbyEventDto] })
+	items: NearbyEventDto[];
+
+	@ApiProperty({ type: PageInfoDto })
+	page: PageInfoDto;
+
+	constructor(items: NearbyEventDto[], page: PageInfoDto) {
 		this.items = items;
 		this.page = page;
 	}
@@ -305,27 +387,44 @@ export class EventDetailDto extends EventSummaryDto {
 	})
 	invitees: EventPersonDto[];
 
+	@ApiProperty({
+		type: [EventPersonDto],
+		description: `The first ${DETAIL_ATTENDEES} people going, oldest first. attendeeCount has the total.`,
+	})
+	attendees: EventPersonDto[];
+
+	@ApiProperty({ description: 'True when the viewer is going.' })
+	isAttending: boolean;
+
+	@ApiPropertyOptional({
+		nullable: true,
+		description: 'When the viewer joined, if they are going.',
+	})
+	joinedAt: Date | null;
+
 	@ApiProperty()
 	createdAt: Date;
 
 	constructor(
 		event: Event,
 		coverUrl: string | null,
-		host: EventPersonDto,
-		isHost: boolean,
-		invitees: EventPersonDto[],
-		inviteeCount: number,
+		people: EventPeople,
+		viewer: {
+			host: EventPersonDto;
+			isHost: boolean;
+			invitees: EventPersonDto[];
+			attendees: EventPersonDto[];
+			joinedAt: Date | null;
+		},
 	) {
-		super(
-			event,
-			coverUrl,
-			inviteeCount,
-			invitees.slice(0, INVITEE_PREVIEW),
-		);
+		super(event, coverUrl, people);
 		this.description = event.description;
-		this.host = host;
-		this.isHost = isHost;
-		this.invitees = invitees;
+		this.host = viewer.host;
+		this.isHost = viewer.isHost;
+		this.invitees = viewer.invitees;
+		this.attendees = viewer.attendees;
+		this.isAttending = viewer.joinedAt !== null;
+		this.joinedAt = viewer.joinedAt;
 		this.createdAt = event.createdAt;
 	}
 }

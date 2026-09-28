@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { ConnectionsService } from '../connections/connections.service';
+import { EventAttendee } from '../events/entities/event-attendee.entity';
 import { ReferenceService } from '../reference/reference.service';
 import { Storage } from '../storage/storage';
 import { User } from './entities/user.entity';
@@ -55,6 +56,10 @@ describe('UsersService.updateProfile', () => {
 			providers: [
 				UsersService,
 				{ provide: getRepositoryToken(User), useValue: users },
+				{
+					provide: getRepositoryToken(EventAttendee),
+					useValue: { count: jest.fn().mockResolvedValue(0) },
+				},
 				{ provide: ReferenceService, useValue: reference },
 				{
 					provide: ConnectionsService,
@@ -159,6 +164,10 @@ describe('UsersService.toProfile', () => {
 			providers: [
 				UsersService,
 				{ provide: getRepositoryToken(User), useValue: {} },
+				{
+					provide: getRepositoryToken(EventAttendee),
+					useValue: { count: jest.fn().mockResolvedValue(0) },
+				},
 				{ provide: ReferenceService, useValue: {} },
 				{
 					provide: ConnectionsService,

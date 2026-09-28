@@ -15,6 +15,7 @@ import {
 } from '../common/utils/hashing.util';
 import { normaliseEmail } from '../common/utils/normalise.util';
 import { ConnectionsService } from '../connections/connections.service';
+import { EventAttendee } from '../events/entities/event-attendee.entity';
 import { ReferenceService } from '../reference/reference.service';
 import { Storage } from '../storage/storage';
 import {
@@ -65,6 +66,8 @@ export class UsersService {
 	constructor(
 		@InjectRepository(User)
 		private readonly users: Repository<User>,
+		@InjectRepository(EventAttendee)
+		private readonly attendees: Repository<EventAttendee>,
 		private readonly reference: ReferenceService,
 		private readonly storage: Storage,
 		private readonly connections: ConnectionsService,
@@ -269,16 +272,16 @@ export class UsersService {
 	}
 
 	/**
-	 * Counts the profile header renders. Events and communities have no table
-	 * yet, so they read zero rather than being invented client side; they light
-	 * up on their own once those features land.
+	 * Counts the profile header renders. Communities have no table yet, so
+	 * they read zero rather than being invented client side.
 	 */
 	private async buildStats(userId: string): Promise<ProfileStatsDto> {
-		return {
-			connections: await this.connections.countAccepted(userId),
-			eventsJoined: 0,
-			communities: 0,
-		};
+		const [connections, eventsJoined] = await Promise.all([
+			this.connections.countAccepted(userId),
+			this.attendees.count({ where: { userId } }),
+		]);
+
+		return { connections, eventsJoined, communities: 0 };
 	}
 
 	/**

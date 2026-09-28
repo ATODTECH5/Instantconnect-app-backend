@@ -20,4 +20,6 @@ export enum NotificationKind {
 	KycRejected = 'kyc_rejected',
 	/** A connection invited you to an event they are hosting. */
 	EventInvite = 'event_invite',
+	/** Someone joined an event you are hosting. */
+	EventJoined = 'event_joined',
 }

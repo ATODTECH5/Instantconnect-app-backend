@@ -5,15 +5,9 @@ import {
 	NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-	DataSource,
-	In,
-	IsNull,
-	LessThan,
-	MoreThanOrEqual,
-	Repository,
-} from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
+import { BlocksService } from '../blocks/blocks.service';
 import { PageInfoDto } from '../common/dto/pagination.dto';
 import { ChatGateway } from '../chat/chat.gateway';
 import { ConnectionsService } from '../connections/connections.service';
@@ -22,22 +16,49 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { Category } from '../reference/entities/category.entity';
 import { Storage, type UploadSignature } from '../storage/storage';
 import { AVATAR_POSITION } from '../users/entities/user-photo.entity';
-import type { User } from '../users/entities/user.entity';
+import { User } from '../users/entities/user.entity';
+import { UserStatus } from '../users/entities/user-status.enum';
 import {
+	CARD_FACES,
 	type CreateEventDto,
+	DETAIL_ATTENDEES,
 	EventDetailDto,
 	EventPageDto,
+	type EventPeople,
 	EventPersonDto,
+	EventRole,
 	EventSummaryDto,
 	EventTimeframe,
-	INVITEE_PREVIEW,
 	type ListMyEventsQueryDto,
+	NearbyEventDto,
+	NearbyEventPageDto,
+	type NearbyEventsQueryDto,
 	RecentVenueDto,
 } from './dto/event.dto';
+import { EventAttendee } from './entities/event-attendee.entity';
 import { EventInvite } from './entities/event-invite.entity';
 import { Event } from './entities/event.entity';
 
 const RECENT_VENUES = 5;
+
+const NO_PEOPLE: EventPeople = {
+	inviteeCount: 0,
+	inviteePreview: [],
+	attendeeCount: 0,
+	attendeePreview: [],
+};
+
+const METRES_PER_KM = 1000;
+
+/**
+ * An event under way stays upcoming until it ends, so it can still be reached
+ * from a list while it is running. `endsAt` is always after `startsAt` when set.
+ */
+const ENDS_OR_STARTS = 'COALESCE(event.endsAt, event.startsAt)';
+
+/** Null for an account with no location, which ST_DWithin then never matches. */
+const VIEWER_ORIGIN =
+	'(SELECT viewer."location" FROM "users" viewer WHERE viewer.id = :viewerId)';
 
 /**
  * Enough rows to find {@link RECENT_VENUES} distinct places for someone who
@@ -61,11 +82,14 @@ export class EventsService {
 		private readonly events: Repository<Event>,
 		@InjectRepository(EventInvite)
 		private readonly invites: Repository<EventInvite>,
+		@InjectRepository(EventAttendee)
+		private readonly attendees: Repository<EventAttendee>,
 		@InjectRepository(Category)
 		private readonly categories: Repository<Category>,
 		private readonly dataSource: DataSource,
 		private readonly storage: Storage,
 		private readonly connections: ConnectionsService,
+		private readonly blocks: BlocksService,
 		private readonly notifications: NotificationsService,
 		private readonly gateway: ChatGateway,
 	) {}
@@ -136,52 +160,180 @@ export class EventsService {
 	}
 
 	async listMine(
-		hostId: string,
+		viewerId: string,
 		query: ListMyEventsQueryDto,
 	): Promise<EventPageDto> {
-		const now = new Date();
-		const isUpcoming = query.when === EventTimeframe.Upcoming;
+		const base = this.events
+			.createQueryBuilder('event')
+			.innerJoin('event.host', 'host')
+			.where(
+				query.role === EventRole.Host
+					? 'event.hostId = :viewerId'
+					: `(event.hostId = :viewerId OR EXISTS (
+							SELECT 1 FROM "event_invites" invite
+							WHERE invite."eventId" = event.id AND invite."userId" = :viewerId
+						) OR EXISTS (
+							SELECT 1 FROM "event_attendees" attendee
+							WHERE attendee."eventId" = event.id AND attendee."userId" = :viewerId
+						))`,
+			)
+			.andWhere(BlocksService.hiddenFromViewerClause('host', 'viewerId'))
+			.setParameters({ viewerId, now: new Date() });
 
-		// An event under way stays upcoming until it ends, so the host can still
-		// reach it from the list while it is running.
-		const [rows, total] = await this.events.findAndCount({
-			where: isUpcoming
-				? [
-						{ hostId, startsAt: MoreThanOrEqual(now) },
-						{ hostId, endsAt: MoreThanOrEqual(now) },
-					]
-				: [
-						{ hostId, startsAt: LessThan(now), endsAt: IsNull() },
-						{ hostId, endsAt: LessThan(now) },
-					],
-			relations: { category: true },
-			order: { startsAt: isUpcoming ? 'ASC' : 'DESC' },
-			take: query.limit,
-			skip: query.offset,
-		});
+		if (query.when === EventTimeframe.Upcoming) {
+			base.andWhere(`${ENDS_OR_STARTS} >= :now`);
+		} else if (query.when === EventTimeframe.Past) {
+			base.andWhere(`${ENDS_OR_STARTS} < :now`);
+		}
 
-		const invitesByEvent = await this.invitesFor(rows.map((row) => row.id));
+		const [rows, total] = await base
+			.leftJoinAndSelect('event.category', 'category')
+			.orderBy(
+				'event.startsAt',
+				query.when === EventTimeframe.Upcoming ? 'ASC' : 'DESC',
+			)
+			.addOrderBy('event.id', 'ASC')
+			.limit(query.limit)
+			.offset(query.offset)
+			.getManyAndCount();
+
+		const people = await this.peopleFor(rows, viewerId);
 
 		return new EventPageDto(
-			rows.map((row) => {
-				const invitees = invitesByEvent.get(row.id) ?? [];
-
-				return new EventSummaryDto(
-					row,
-					this.coverUrl(row),
-					invitees.length,
-					invitees
-						.slice(0, INVITEE_PREVIEW)
-						.map((user) => this.toPerson(user)),
-				);
-			}),
+			rows.map(
+				(row) =>
+					new EventSummaryDto(
+						row,
+						this.coverUrl(row),
+						people.get(row.id) ?? NO_PEOPLE,
+					),
+			),
 			new PageInfoDto(total, query),
 		);
 	}
 
 	/**
-	 * A private event reads as missing to anyone but its host and invitees,
-	 * rather than as forbidden, so its existence is not disclosed either.
+	 * Public events that have not ended, within the radius of the viewer's
+	 * saved location, soonest first. The viewer's own public events are
+	 * included, so a host sees what everyone else nearby sees. An account with
+	 * no location matches nothing rather than failing, since Home already
+	 * asks for a location through the people rail.
+	 */
+	async listNearby(
+		viewerId: string,
+		query: NearbyEventsQueryDto,
+	): Promise<NearbyEventPageDto> {
+		const base = this.events
+			.createQueryBuilder('event')
+			.innerJoin('event.host', 'host')
+			.where('event.isPublic = true')
+			.andWhere(`${ENDS_OR_STARTS} >= :now`)
+			.andWhere('host.status = :active')
+			.andWhere(
+				`ST_DWithin(event.venueLocation, ${VIEWER_ORIGIN}, :radius)`,
+			)
+			.andWhere(BlocksService.hiddenFromViewerClause('host', 'viewerId'))
+			.setParameters({
+				viewerId,
+				now: new Date(),
+				active: UserStatus.Active,
+				radius: query.radiusKm * METRES_PER_KM,
+			});
+
+		const total = await base.getCount();
+
+		if (total === 0) {
+			return new NearbyEventPageDto([], new PageInfoDto(0, query));
+		}
+
+		const { entities, raw } = await base
+			.clone()
+			.leftJoinAndSelect('event.category', 'category')
+			.addSelect(
+				`ST_Distance(event.venueLocation, ${VIEWER_ORIGIN})`,
+				'distance_m',
+			)
+			.orderBy('event.startsAt', 'ASC')
+			.addOrderBy('event.id', 'ASC')
+			.limit(query.limit)
+			.offset(query.offset)
+			.getRawAndEntities<{ distance_m: string }>();
+
+		const people = await this.peopleFor(entities, viewerId);
+
+		return new NearbyEventPageDto(
+			entities.map(
+				(event, index) =>
+					new NearbyEventDto(
+						event,
+						this.coverUrl(event),
+						people.get(event.id) ?? NO_PEOPLE,
+						Number(raw[index].distance_m),
+					),
+			),
+			new PageInfoDto(total, query),
+		);
+	}
+
+	/**
+	 * Free events only: there is no checkout, so a paid event would be joined
+	 * without anyone paying. Joining twice is one join, and only the first
+	 * tells the host.
+	 */
+	async join(viewerId: string, id: string): Promise<EventDetailDto> {
+		const event = await this.visibleEvent(viewerId, id);
+
+		if (event.hostId === viewerId) {
+			throw new BadRequestException({
+				code: 'EVENT_HOST_CANNOT_JOIN',
+				message: 'You are hosting this event.',
+			});
+		}
+
+		this.assertNotEnded(event);
+
+		if (event.priceMinor > 0) {
+			throw new BadRequestException({
+				code: 'EVENT_TICKETS_UNAVAILABLE',
+				message: 'Tickets for paid events are not available yet.',
+			});
+		}
+
+		const result = await this.attendees
+			.createQueryBuilder()
+			.insert()
+			.into(EventAttendee)
+			.values({ eventId: id, userId: viewerId })
+			.orIgnore()
+			.execute();
+
+		if ((result.raw as unknown[]).length > 0) {
+			await this.notify(
+				event.hostId,
+				NotificationKind.EventJoined,
+				viewerId,
+				id,
+			);
+		}
+
+		return this.findOne(viewerId, id);
+	}
+
+	/** Idempotent, like joining: leaving an event you are not going to is a no-op. */
+	async leave(viewerId: string, id: string): Promise<EventDetailDto> {
+		const event = await this.visibleEvent(viewerId, id);
+
+		this.assertNotEnded(event);
+
+		await this.attendees.delete({ eventId: id, userId: viewerId });
+
+		return this.findOne(viewerId, id);
+	}
+
+	/**
+	 * A private event reads as missing to anyone but its host, invitees and
+	 * attendees, rather than as forbidden, so its existence is not disclosed
+	 * either.
 	 */
 	async findOne(viewerId: string, id: string): Promise<EventDetailDto> {
 		const event = await this.events.findOne({
@@ -210,20 +362,91 @@ export class EventsService {
 		if (!event) throw this.notFound();
 
 		const isHost = event.hostId === viewerId;
-		const invitees =
-			(await this.invitesFor([event.id])).get(event.id) ?? [];
+		const [invitesByEvent, attendance, own] = await Promise.all([
+			this.invitesFor([event.id]),
+			this.attendanceFor([event.id], DETAIL_ATTENDEES),
+			this.attendees.findOne({
+				where: { eventId: event.id, userId: viewerId },
+				select: { id: true, createdAt: true },
+			}),
+		]);
+		const invitees = invitesByEvent.get(event.id) ?? [];
+		const going = attendance.get(event.id) ?? { count: 0, people: [] };
 		const isInvited = invitees.some((user) => user.id === viewerId);
 
-		if (!event.isPublic && !isHost && !isInvited) throw this.notFound();
+		if (!event.isPublic && !isHost && !isInvited && !own) {
+			throw this.notFound();
+		}
+
+		const visibleInvitees = isHost
+			? invitees.map((user) => this.toPerson(user))
+			: [];
+		const attendees = going.people.map((user) => this.toPerson(user));
 
 		return new EventDetailDto(
 			event,
 			this.coverUrl(event),
-			this.toPerson(event.host),
-			isHost,
-			isHost ? invitees.map((user) => this.toPerson(user)) : [],
-			invitees.length,
+			{
+				inviteeCount: invitees.length,
+				inviteePreview: visibleInvitees.slice(0, CARD_FACES),
+				attendeeCount: going.count,
+				attendeePreview: attendees.slice(0, CARD_FACES),
+			},
+			{
+				host: this.toPerson(event.host),
+				isHost,
+				invitees: visibleInvitees,
+				attendees,
+				joinedAt: own?.createdAt ?? null,
+			},
 		);
+	}
+
+	/**
+	 * The gate for joining and leaving: the same visibility as the detail
+	 * screen, and nobody can act on an event whose host they have blocked or
+	 * been blocked by.
+	 */
+	private async visibleEvent(viewerId: string, id: string): Promise<Event> {
+		const event = await this.events.findOne({
+			where: { id },
+			select: {
+				id: true,
+				hostId: true,
+				isPublic: true,
+				startsAt: true,
+				endsAt: true,
+				priceMinor: true,
+			},
+		});
+
+		if (!event) throw this.notFound();
+
+		const [isInvited, isAttending, isBlocked] = await Promise.all([
+			this.invites.exists({ where: { eventId: id, userId: viewerId } }),
+			this.attendees.exists({ where: { eventId: id, userId: viewerId } }),
+			this.blocks.isBlockedEitherWay(viewerId, event.hostId),
+		]);
+		const canSee =
+			event.isPublic ||
+			event.hostId === viewerId ||
+			isInvited ||
+			isAttending;
+
+		if (!canSee || isBlocked) throw this.notFound();
+
+		return event;
+	}
+
+	private assertNotEnded(event: Event): void {
+		const endsAt = event.endsAt ?? event.startsAt;
+
+		if (endsAt.getTime() < Date.now()) {
+			throw new BadRequestException({
+				code: 'EVENT_ENDED',
+				message: 'This event has already ended.',
+			});
+		}
 	}
 
 	async recentVenues(hostId: string): Promise<RecentVenueDto[]> {
@@ -351,21 +574,134 @@ export class EventsService {
 		inviteeIds: string[],
 	): Promise<void> {
 		for (const userId of inviteeIds) {
-			try {
-				const notification = await this.notifications.create({
-					userId,
-					kind: NotificationKind.EventInvite,
-					actorId: hostId,
-					subjectId: eventId,
-				});
-
-				this.gateway.broadcastNotification(userId, notification);
-			} catch (error) {
-				this.logger.warn(
-					`Could not notify ${userId} of event ${eventId}: ${String(error)}`,
-				);
-			}
+			await this.notify(
+				userId,
+				NotificationKind.EventInvite,
+				hostId,
+				eventId,
+			);
 		}
+	}
+
+	/** Never throws: the write it follows has already been committed. */
+	private async notify(
+		userId: string,
+		kind: NotificationKind,
+		actorId: string,
+		eventId: string,
+	): Promise<void> {
+		try {
+			const notification = await this.notifications.create({
+				userId,
+				kind,
+				actorId,
+				subjectId: eventId,
+			});
+
+			this.gateway.broadcastNotification(userId, notification);
+		} catch (error) {
+			this.logger.warn(
+				`Could not notify ${userId} (${kind}) about event ${eventId}: ${String(error)}`,
+			);
+		}
+	}
+
+	/**
+	 * Counts and card faces for a page of events. Invitee faces go to the
+	 * host only, matching the detail screen; attendee faces go to anyone who
+	 * can see the event.
+	 */
+	private async peopleFor(
+		events: Event[],
+		viewerId: string,
+	): Promise<Map<string, EventPeople>> {
+		const ids = events.map((event) => event.id);
+		const hostedIds = events
+			.filter((event) => event.hostId === viewerId)
+			.map((event) => event.id);
+
+		const [inviteCounts, hostedInvites, attendance] = await Promise.all([
+			this.inviteCountsFor(ids),
+			this.invitesFor(hostedIds),
+			this.attendanceFor(ids, CARD_FACES),
+		]);
+
+		return new Map(
+			ids.map((id) => {
+				const going = attendance.get(id) ?? { count: 0, people: [] };
+
+				return [
+					id,
+					{
+						inviteeCount: inviteCounts.get(id) ?? 0,
+						inviteePreview: (hostedInvites.get(id) ?? [])
+							.slice(0, CARD_FACES)
+							.map((user) => this.toPerson(user)),
+						attendeeCount: going.count,
+						attendeePreview: going.people.map((user) =>
+							this.toPerson(user),
+						),
+					},
+				];
+			}),
+		);
+	}
+
+	/**
+	 * The total going to each event and its first `limit` attendees, oldest
+	 * first. Ranked in SQL so a popular event never loads every attendee.
+	 */
+	private async attendanceFor(
+		eventIds: string[],
+		limit: number,
+	): Promise<Map<string, { count: number; people: User[] }>> {
+		const byEvent = new Map<string, { count: number; people: User[] }>();
+
+		if (eventIds.length === 0) return byEvent;
+
+		const [counts, ranked] = await Promise.all([
+			this.attendees
+				.createQueryBuilder('attendee')
+				.select('attendee.eventId', 'eventId')
+				.addSelect('COUNT(*)', 'count')
+				.where('attendee.eventId IN (:...eventIds)', { eventIds })
+				.groupBy('attendee.eventId')
+				.getRawMany<{ eventId: string; count: string }>(),
+			this.dataSource.query<{ eventId: string; userId: string }[]>(
+				`SELECT "eventId", "userId" FROM (
+					SELECT a."eventId", a."userId", a."createdAt",
+						ROW_NUMBER() OVER (PARTITION BY a."eventId" ORDER BY a."createdAt", a.id) AS rank
+					FROM "event_attendees" a
+					WHERE a."eventId" = ANY($1)
+				) ranked
+				WHERE rank <= $2
+				ORDER BY "eventId", "createdAt"`,
+				[eventIds, limit],
+			),
+		]);
+
+		const users = ranked.length
+			? await this.dataSource.getRepository(User).find({
+					where: {
+						id: In([...new Set(ranked.map((row) => row.userId))]),
+					},
+					relations: { photos: true },
+					select: PERSON_SELECT,
+				})
+			: [];
+		const userById = new Map(users.map((user) => [user.id, user]));
+
+		for (const row of counts) {
+			byEvent.set(row.eventId, { count: Number(row.count), people: [] });
+		}
+
+		for (const row of ranked) {
+			const user = userById.get(row.userId);
+
+			if (user) byEvent.get(row.eventId)?.people.push(user);
+		}
+
+		return byEvent;
 	}
 
 	/** One query for every event on a page, oldest invitation first. */
@@ -389,6 +725,22 @@ export class EventsService {
 		}
 
 		return byEvent;
+	}
+
+	private async inviteCountsFor(
+		eventIds: string[],
+	): Promise<Map<string, number>> {
+		if (eventIds.length === 0) return new Map();
+
+		const rows = await this.invites
+			.createQueryBuilder('invite')
+			.select('invite.eventId', 'eventId')
+			.addSelect('COUNT(*)', 'count')
+			.where('invite.eventId IN (:...eventIds)', { eventIds })
+			.groupBy('invite.eventId')
+			.getRawMany<{ eventId: string; count: string }>();
+
+		return new Map(rows.map((row) => [row.eventId, Number(row.count)]));
 	}
 
 	private toPerson(user: User): EventPersonDto {

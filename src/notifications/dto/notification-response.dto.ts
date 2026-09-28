@@ -87,6 +87,11 @@ function describe(
 				title: 'Event invitation',
 				body: `${who} invited you to an event they are hosting`,
 			};
+		case NotificationKind.EventJoined:
+			return {
+				title: 'New attendee',
+				body: `${who} is going to your event`,
+			};
 	}
 }
 
