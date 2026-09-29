@@ -170,17 +170,27 @@ export class AuthService {
 	async signInAdmin(
 		dto: AdminSignInDto,
 		context: SessionContext,
-	): Promise<SessionResponseDto> {
-		const user = await this.authenticate(dto);
+	): Promise<{ tokens: IssuedTokens; user: User }> {
+		const candidate = await this.authenticate(dto);
 
-		if (user.role !== UserRole.Admin) throw this.invalidCredentials();
+		if (candidate.role !== UserRole.Admin) throw this.invalidCredentials();
 
-		await this.users.recordSignIn(user.id);
+		await this.users.recordSignIn(candidate.id);
 
-		return this.startSession(await this.users.getByIdOrFail(user.id), {
+		const user = await this.users.getByIdOrFail(candidate.id);
+		const tokens = await this.tokens.issueSession(user, {
 			...context,
 			keepSignedIn: false,
 		});
+
+		return { tokens, user };
+	}
+
+	rotateSession(
+		refreshToken: string,
+		context: SessionContext,
+	): Promise<IssuedTokens> {
+		return this.tokens.rotate(refreshToken, context);
 	}
 
 	private async authenticate(dto: AdminSignInDto): Promise<User> {

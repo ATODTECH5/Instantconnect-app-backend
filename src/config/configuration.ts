@@ -45,6 +45,8 @@ export const authConfig = registerAs('auth', () => {
 		passwordResetTtl: e.JWT_PASSWORD_RESET_TTL as DurationString,
 		refreshTtlDays: e.REFRESH_TOKEN_TTL_DAYS,
 		refreshSessionTtlDays: e.REFRESH_TOKEN_SESSION_TTL_DAYS,
+		adminCookieDomain: e.ADMIN_COOKIE_DOMAIN,
+		secureCookies: e.NODE_ENV === 'production',
 		codeTtlMinutes: e.VERIFICATION_CODE_TTL_MINUTES,
 		codeMaxAttempts: e.VERIFICATION_CODE_MAX_ATTEMPTS,
 	};

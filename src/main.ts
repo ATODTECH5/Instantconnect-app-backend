@@ -1,6 +1,7 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import cookieParser from 'cookie-parser';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
@@ -13,6 +14,7 @@ async function bootstrap(): Promise<void> {
 
 	app.useLogger(app.get(Logger));
 	app.use(docsAwareHelmet());
+	app.use(cookieParser());
 	app.enableCors({
 		// An empty allow list means no browser origin is trusted. In development
 		// that would break the Expo web build, which serves from a random port.

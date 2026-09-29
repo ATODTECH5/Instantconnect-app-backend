@@ -60,6 +60,7 @@ export const envSchema = z.object({
 		.int()
 		.positive()
 		.default(1),
+	ADMIN_COOKIE_DOMAIN: optionalSecret,
 
 	VERIFICATION_CODE_TTL_MINUTES: z.coerce
 		.number()
