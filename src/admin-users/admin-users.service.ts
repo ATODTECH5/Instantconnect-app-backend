@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
+
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 
 import { PageInfoDto } from '../common/dto/pagination.dto';
 import { Storage } from '../storage/storage';
@@ -7,6 +9,7 @@ import { SupportMessageDto } from '../support/dto/support-message.dto';
 import { SupportService } from '../support/support.service';
 import { KycStatus } from '../users/entities/kyc-status.enum';
 import { UserStatus } from '../users/entities/user-status.enum';
+import { User } from '../users/entities/user.entity';
 import {
 	AdminUserDetailDto,
 	AdminUserPageDto,
@@ -246,6 +249,78 @@ export class AdminUsersService {
 		const agentName = admin?.fullName.split(' ')[0] || 'Support';
 
 		return this.support.reply(userId, agentName, dto.subject, dto.body);
+	}
+
+	/**
+	 * Stored as `suspended`, which sign in, password reset, email verification
+	 * and token refresh already refuse. Every session is revoked in the same
+	 * transaction, so a signed in device is out when its access token expires.
+	 */
+	async disable(id: string): Promise<AdminUserDetailDto> {
+		await this.memberOrFail(id);
+
+		await this.dataSource.transaction(async (manager) => {
+			await manager.update(User, id, { status: UserStatus.Suspended });
+			await manager.update(
+				RefreshToken,
+				{ userId: id, revokedAt: IsNull() },
+				{ revokedAt: new Date() },
+			);
+		});
+
+		return this.findOne(id);
+	}
+
+	/** Back to where the member was: active once their email is verified. */
+	async enable(id: string): Promise<AdminUserDetailDto> {
+		await this.memberOrFail(id);
+
+		await this.dataSource.query(
+			`UPDATE "users"
+       SET "status" = CASE WHEN "emailVerifiedAt" IS NULL
+         THEN 'pending_verification' ELSE 'active' END::"users_status_enum",
+         "updatedAt" = now()
+       WHERE "id" = $1 AND "status" = 'suspended'`,
+			[id],
+		);
+
+		return this.findOne(id);
+	}
+
+	/**
+	 * The same soft delete a member does from Settings: the row stops answering
+	 * to sign in, discovery and chat, and the email and phone are free to
+	 * register again.
+	 */
+	async remove(id: string): Promise<void> {
+		await this.memberOrFail(id);
+
+		await this.dataSource.transaction(async (manager) => {
+			await manager.update(
+				RefreshToken,
+				{ userId: id, revokedAt: IsNull() },
+				{ revokedAt: new Date() },
+			);
+			await manager.update(User, id, {
+				deletionReason: 'removed_by_admin',
+			});
+			await manager.softDelete(User, { id });
+		});
+	}
+
+	private async memberOrFail(id: string): Promise<void> {
+		const [row] = await this.dataSource.query<{ id: string }[]>(
+			`SELECT "id" FROM "users"
+       WHERE "id" = $1 AND "role" = 'user' AND "deletedAt" IS NULL`,
+			[id],
+		);
+
+		if (!row) {
+			throw new NotFoundException({
+				code: 'USER_NOT_FOUND',
+				message: 'That account does not exist.',
+			});
+		}
 	}
 
 	/** Members only: admins and deleted accounts never appear in the directory. */

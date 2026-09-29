@@ -134,6 +134,9 @@ export class AuthService {
 		await this.users.markEmailVerified(user.id);
 		await this.referrals.markJoined(user.id);
 
+		// A disabled account still gets its email verified, just no session.
+		if (user.status === UserStatus.Suspended) throw this.accountDisabled();
+
 		return this.startSession(
 			await this.users.getByIdOrFail(user.id),
 			context,
@@ -206,12 +209,7 @@ export class AuthService {
 			throw this.invalidCredentials();
 		}
 
-		if (user.status === UserStatus.Suspended) {
-			throw new ForbiddenException({
-				code: 'ACCOUNT_SUSPENDED',
-				message: 'This account has been suspended. Contact support.',
-			});
-		}
+		if (user.status === UserStatus.Suspended) throw this.accountDisabled();
 
 		if (!user.emailVerifiedAt) {
 			throw new ForbiddenException({
@@ -317,6 +315,14 @@ export class AuthService {
 		} catch {
 			throw this.invalidResetToken();
 		}
+	}
+
+	/** The code stays ACCOUNT_SUSPENDED: installed app builds already know it. */
+	private accountDisabled(): ForbiddenException {
+		return new ForbiddenException({
+			code: 'ACCOUNT_SUSPENDED',
+			message: 'This account has been disabled. Contact support.',
+		});
 	}
 
 	private async startSession(

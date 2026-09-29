@@ -1,5 +1,7 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import {
+	ApiBearerAuth,
+	ApiCookieAuth,
 	ApiForbiddenResponse,
 	ApiOkResponse,
 	ApiOperation,
@@ -8,6 +10,7 @@ import {
 } from '@nestjs/swagger';
 
 import { Roles } from '../common/decorators/roles.decorator';
+import { ADMIN_SESSION_AUTH } from '../docs/swagger';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -18,6 +21,8 @@ import { EventsByCategoryDto } from './dto/events-by-category.dto';
 import { UserGrowthDto, UserGrowthQueryDto } from './dto/user-growth.dto';
 
 @ApiTags('Admin Dashboard')
+@ApiCookieAuth(ADMIN_SESSION_AUTH)
+@ApiBearerAuth('access-token')
 @ApiUnauthorizedResponse({ description: 'UNAUTHENTICATED', type: ApiErrorDto })
 @ApiForbiddenResponse({ description: 'FORBIDDEN', type: ApiErrorDto })
 @Roles(UserRole.Admin)

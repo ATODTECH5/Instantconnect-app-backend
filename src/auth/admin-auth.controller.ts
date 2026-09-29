@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import {
 	ApiBadRequestResponse,
+	ApiCookieAuth,
 	ApiForbiddenResponse,
 	ApiNoContentResponse,
 	ApiOkResponse,
@@ -23,6 +24,7 @@ import type { Request, Response } from 'express';
 
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { Public } from '../common/decorators/public.decorator';
+import { ADMIN_SESSION_AUTH } from '../docs/swagger';
 import { AdminSessionCookies } from './admin-session-cookies';
 import { AdminSignInDto } from './dto/admin-sign-in.dto';
 import {
@@ -85,6 +87,7 @@ export class AdminAuthController {
 		type: ApiErrorDto,
 	})
 	@HttpCode(HttpStatus.OK)
+	@ApiCookieAuth(ADMIN_SESSION_AUTH)
 	@Post('refresh')
 	async refresh(
 		@Req() request: Request,
@@ -119,6 +122,7 @@ export class AdminAuthController {
 		description: 'Always, and the cookies are cleared either way.',
 	})
 	@HttpCode(HttpStatus.NO_CONTENT)
+	@ApiCookieAuth(ADMIN_SESSION_AUTH)
 	@Post('sign-out')
 	async signOut(
 		@Req() request: Request,

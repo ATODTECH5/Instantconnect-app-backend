@@ -17,8 +17,17 @@ Access tokens are short lived. When one expires, exchange the refresh token at
 one. Presenting a refresh token twice revokes the whole session family, so
 store only the newest.
 
+**Admin dashboard.** The \`Admin\` endpoints need an account with the admin
+role. Call \`POST /api/v1/admin/auth/sign-in\` here with **Try it out**: it sets
+the \`ic_admin_access\` and \`ic_admin_refresh\` httpOnly cookies, which this page
+then sends automatically. A bearer token from \`/auth/sign-in\` on an admin
+account works too.
+
 Failures all share one envelope. Branch on \`code\`, never on \`message\`.
 `.trim();
+
+/** The security scheme name the admin controllers declare. */
+export const ADMIN_SESSION_AUTH = 'admin-session';
 
 /**
  * Swagger UI boots from an inline script, which helmet's default CSP blocks,
@@ -58,6 +67,16 @@ export function setupSwagger(app: INestApplication): void {
 			{ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
 			'access-token',
 		)
+		.addCookieAuth(
+			'ic_admin_access',
+			{
+				type: 'apiKey',
+				in: 'cookie',
+				description:
+					'Set by POST /api/v1/admin/auth/sign-in. Browsers send it on their own.',
+			},
+			ADMIN_SESSION_AUTH,
+		)
 		.addTag('Auth', 'Registration, sign in, tokens and password reset')
 		.addTag('Users', 'The signed in account')
 		.addTag(
@@ -65,6 +84,12 @@ export function setupSwagger(app: INestApplication): void {
 			'Seeded pick lists: categories, occupations, hobbies',
 		)
 		.addTag('Health', 'Liveness probe for load balancers')
+		.addTag('Admin Auth', 'Admin dashboard sign in, refresh and sign out')
+		.addTag('Admin Dashboard', 'Overview cards, charts and recent activity')
+		.addTag(
+			'Admin Users',
+			'Member directory, profiles, export and messaging',
+		)
 		.build();
 
 	SwaggerModule.setup(

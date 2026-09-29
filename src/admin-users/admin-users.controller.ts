@@ -3,7 +3,10 @@ import { Readable } from 'node:stream';
 import {
 	Body,
 	Controller,
+	Delete,
 	Get,
+	HttpCode,
+	HttpStatus,
 	Param,
 	ParseUUIDPipe,
 	Post,
@@ -11,8 +14,11 @@ import {
 	StreamableFile,
 } from '@nestjs/common';
 import {
+	ApiBearerAuth,
+	ApiCookieAuth,
 	ApiCreatedResponse,
 	ApiForbiddenResponse,
+	ApiNoContentResponse,
 	ApiNotFoundResponse,
 	ApiOkResponse,
 	ApiOperation,
@@ -23,6 +29,7 @@ import {
 
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { ADMIN_SESSION_AUTH } from '../docs/swagger';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { SupportMessageDto } from '../support/dto/support-message.dto';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -35,6 +42,8 @@ import {
 import { MessageAdminUserDto } from './dto/message-admin-user.dto';
 
 @ApiTags('Admin Users')
+@ApiCookieAuth(ADMIN_SESSION_AUTH)
+@ApiBearerAuth('access-token')
 @ApiUnauthorizedResponse({ description: 'UNAUTHENTICATED', type: ApiErrorDto })
 @ApiForbiddenResponse({ description: 'FORBIDDEN', type: ApiErrorDto })
 @Roles(UserRole.Admin)
@@ -93,5 +102,46 @@ export class AdminUsersController {
 		@Body() dto: MessageAdminUserDto,
 	): Promise<SupportMessageDto> {
 		return this.users.message(adminId, id, dto);
+	}
+
+	@ApiOperation({
+		summary: 'Disable a member',
+		description:
+			'They cannot sign in, and every session is revoked, so a signed in device is out within the access token lifetime. Stored as the `suspended` status.',
+	})
+	@ApiCreatedResponse({ type: AdminUserDetailDto })
+	@ApiNotFoundResponse({ description: 'USER_NOT_FOUND', type: ApiErrorDto })
+	@Post(':id/disable')
+	disable(
+		@Param('id', ParseUUIDPipe) id: string,
+	): Promise<AdminUserDetailDto> {
+		return this.users.disable(id);
+	}
+
+	@ApiOperation({
+		summary: 'Re-enable a disabled member',
+		description:
+			'Active again, or pending if they never verified their email. They sign in afresh.',
+	})
+	@ApiCreatedResponse({ type: AdminUserDetailDto })
+	@ApiNotFoundResponse({ description: 'USER_NOT_FOUND', type: ApiErrorDto })
+	@Post(':id/enable')
+	enable(
+		@Param('id', ParseUUIDPipe) id: string,
+	): Promise<AdminUserDetailDto> {
+		return this.users.enable(id);
+	}
+
+	@ApiOperation({
+		summary: 'Delete a member',
+		description:
+			'The same soft delete as deleting from Settings in the app. Their email and phone can register again.',
+	})
+	@ApiNoContentResponse()
+	@ApiNotFoundResponse({ description: 'USER_NOT_FOUND', type: ApiErrorDto })
+	@HttpCode(HttpStatus.NO_CONTENT)
+	@Delete(':id')
+	remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+		return this.users.remove(id);
 	}
 }

@@ -12,6 +12,7 @@ import { IsNull, Repository } from 'typeorm';
 
 import { digestToken, generateOpaqueToken } from '../common/utils/hashing.util';
 import type { User } from '../users/entities/user.entity';
+import { UserStatus } from '../users/entities/user-status.enum';
 import { UsersService } from '../users/users.service';
 import { authConfig } from '../config/configuration';
 import type { IssuedTokens } from './dto/session-response.dto';
@@ -65,7 +66,9 @@ export class TokensService {
 
 		const user = await this.users.findByIdForTokens(stored.userId);
 
-		if (!user) throw this.invalidRefreshToken();
+		if (!user || user.status === UserStatus.Suspended) {
+			throw this.invalidRefreshToken();
+		}
 
 		return this.refreshTokens.manager.transaction(async (manager) => {
 			await manager.update(RefreshToken, stored.id, {

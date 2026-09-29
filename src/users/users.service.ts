@@ -87,7 +87,7 @@ export class UsersService {
 	findByIdForTokens(id: string): Promise<User | null> {
 		return this.users.findOne({
 			where: { id },
-			select: { id: true, email: true, role: true },
+			select: { id: true, email: true, role: true, status: true },
 		});
 	}
 
