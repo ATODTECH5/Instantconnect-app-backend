@@ -148,11 +148,25 @@ export class ListKycSubmissionsQueryDto extends PaginationQueryDto {
 	@ApiPropertyOptional({
 		enum: KycSubmissionStatus,
 		enumName: 'KycSubmissionStatus',
-		default: KycSubmissionStatus.Pending,
+		description:
+			'Omit for every submission. Pending comes oldest first, as a queue; everything else newest first.',
 	})
 	@IsOptional()
 	@IsEnum(KycSubmissionStatus)
-	status: KycSubmissionStatus = KycSubmissionStatus.Pending;
+	status?: KycSubmissionStatus;
+
+	@ApiPropertyOptional({
+		description:
+			'Matches anywhere in the applicant’s name or email, ignoring case.',
+		maxLength: 100,
+	})
+	@IsOptional()
+	@IsString()
+	@MaxLength(100)
+	@Transform(({ value }: { value: unknown }) =>
+		typeof value === 'string' ? value.trim() || undefined : value,
+	)
+	search?: string;
 }
 
 /** What the account sees of its own latest attempt. Never a document. */
@@ -196,6 +210,15 @@ export class KycOverviewDto {
 	}
 }
 
+export type KycApplicant = {
+	id: string;
+	fullName: string;
+	email: string;
+	phone: string;
+	dateOfBirth: string | null;
+	avatarUrl: string | null;
+};
+
 class KycApplicantDto {
 	@ApiProperty({ format: 'uuid' })
 	id: string;
@@ -206,10 +229,27 @@ class KycApplicantDto {
 	@ApiProperty()
 	email: string;
 
-	constructor(id: string, fullName: string, email: string) {
-		this.id = id;
-		this.fullName = fullName;
-		this.email = email;
+	@ApiProperty({ example: '+2348123456789' })
+	phone: string;
+
+	@ApiProperty({
+		nullable: true,
+		type: String,
+		format: 'date',
+		description: 'From the account, to compare with the ID.',
+	})
+	dateOfBirth: string | null;
+
+	@ApiProperty({ nullable: true, type: String })
+	avatarUrl: string | null;
+
+	constructor(applicant: KycApplicant) {
+		this.id = applicant.id;
+		this.fullName = applicant.fullName;
+		this.email = applicant.email;
+		this.phone = applicant.phone;
+		this.dateOfBirth = applicant.dateOfBirth;
+		this.avatarUrl = applicant.avatarUrl;
 	}
 }
 
@@ -277,13 +317,21 @@ export class KycSubmissionReviewDto extends KycSubmissionSummaryDto {
 	@ApiProperty({ type: KycDocumentUrlsDto })
 	documents: KycDocumentUrlsDto;
 
-	constructor(row: KycSubmission, documents: KycDocumentUrlsDto) {
+	@ApiPropertyOptional({
+		nullable: true,
+		type: String,
+		description: 'The admin who decided it, by full name.',
+	})
+	reviewedByName: string | null;
+
+	constructor(
+		row: KycSubmission,
+		applicant: KycApplicant,
+		documents: KycDocumentUrlsDto,
+	) {
 		super(row);
-		this.applicant = new KycApplicantDto(
-			row.user.id,
-			row.user.fullName,
-			row.user.email,
-		);
+		this.applicant = new KycApplicantDto(applicant);
+		this.reviewedByName = row.reviewedBy?.fullName ?? null;
 		this.additionalIdKind = row.additionalIdKind;
 		this.addressLine = row.addressLine;
 		this.country = row.country;
@@ -298,6 +346,20 @@ export class KycSubmissionReviewDto extends KycSubmissionSummaryDto {
 	}
 }
 
+export class KycSubmissionCountsDto {
+	@ApiProperty({ example: 42 })
+	all: number;
+
+	@ApiProperty({ example: 28 })
+	pending: number;
+
+	@ApiProperty({ example: 11 })
+	approved: number;
+
+	@ApiProperty({ example: 3 })
+	rejected: number;
+}
+
 export class KycSubmissionPageDto {
 	@ApiProperty({ type: [KycSubmissionReviewDto] })
 	items: KycSubmissionReviewDto[];
@@ -305,10 +367,35 @@ export class KycSubmissionPageDto {
 	@ApiProperty({ type: PageInfoDto })
 	page: PageInfoDto;
 
-	constructor(items: KycSubmissionReviewDto[], page: PageInfoDto) {
+	@ApiProperty({
+		type: KycSubmissionCountsDto,
+		description: 'Per status for the same search, for the tab badges.',
+	})
+	counts: KycSubmissionCountsDto;
+
+	constructor(
+		items: KycSubmissionReviewDto[],
+		page: PageInfoDto,
+		counts: KycSubmissionCountsDto,
+	) {
 		this.items = items;
 		this.page = page;
+		this.counts = counts;
 	}
+}
+
+export class KycReviewStatsDto {
+	@ApiProperty({
+		description: 'Waiting for a decision, whenever submitted.',
+		example: 28,
+	})
+	pending: number;
+
+	@ApiProperty({ description: 'Since midnight in Lagos.', example: 12 })
+	approvedToday: number;
+
+	@ApiProperty({ description: 'Since midnight in Lagos.', example: 3 })
+	rejectedToday: number;
 }
 
 export { KycDocumentUrlsDto };

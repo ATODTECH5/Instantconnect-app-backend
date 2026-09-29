@@ -30,6 +30,7 @@ import { UploadSignatureResponseDto } from '../common/dto/upload-signature.dto';
 import { UserRole } from '../users/entities/user-role.enum';
 import {
 	KycOverviewDto,
+	KycReviewStatsDto,
 	KycSubmissionPageDto,
 	KycSubmissionReviewDto,
 	KycUploadSignatureDto,
@@ -105,8 +106,9 @@ export class KycController {
 	}
 
 	@ApiOperation({
-		summary: 'Submissions awaiting review, oldest first',
-		description: 'Admin only. Document URLs are signed for the reviewer.',
+		summary: 'Submissions for review, filtered by status and applicant',
+		description:
+			'Admin only. Pending is oldest first, as a queue; anything else is newest first. Accounts that were deleted are left out. Document URLs are signed for the reviewer.',
 	})
 	@ApiOkResponse({ type: KycSubmissionPageDto })
 	@ApiForbiddenResponse({ description: 'FORBIDDEN', type: ApiErrorDto })
@@ -116,6 +118,18 @@ export class KycController {
 		@Query() query: ListKycSubmissionsQueryDto,
 	): Promise<KycSubmissionPageDto> {
 		return this.kyc.list(query);
+	}
+
+	@ApiOperation({
+		summary: 'Queue size and today’s decisions',
+		description: 'Admin only. "Today" starts at midnight in Lagos.',
+	})
+	@ApiOkResponse({ type: KycReviewStatsDto })
+	@ApiForbiddenResponse({ description: 'FORBIDDEN', type: ApiErrorDto })
+	@Roles(UserRole.Admin)
+	@Get('submissions/stats')
+	stats(): Promise<KycReviewStatsDto> {
+		return this.kyc.stats();
 	}
 
 	@ApiOperation({ summary: 'One submission with its documents' })

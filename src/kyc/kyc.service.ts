@@ -5,7 +5,7 @@ import {
 	NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, type SelectQueryBuilder } from 'typeorm';
 
 import { PageInfoDto } from '../common/dto/pagination.dto';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
@@ -16,6 +16,8 @@ import { User } from '../users/entities/user.entity';
 import {
 	KycDocumentUrlsDto,
 	KycOverviewDto,
+	KycReviewStatsDto,
+	KycSubmissionCountsDto,
 	KycSubmissionPageDto,
 	KycSubmissionReviewDto,
 	type ListKycSubmissionsQueryDto,
@@ -29,6 +31,11 @@ import {
 } from './entities/kyc-submission.entity';
 
 const AUTHENTICATED = { authenticated: true } as const;
+
+/** Every member is in Lagos, so "today" starts at Lagos midnight. */
+const LAGOS_MIDNIGHT = `(date_trunc('day', now() AT TIME ZONE 'Africa/Lagos') AT TIME ZONE 'Africa/Lagos')`;
+
+const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
 const ADDITIONAL_ID_DOCUMENT: Record<KycAdditionalIdKind, KycDocumentKind> = {
 	[KycAdditionalIdKind.Passport]: KycDocumentKind.Passport,
@@ -126,28 +133,79 @@ export class KycService {
 		return this.overview(userId);
 	}
 
+	/**
+	 * Submissions from deleted accounts are left out: there is no one left to
+	 * verify, and their documents are only kept for the record.
+	 */
 	async list(
 		query: ListKycSubmissionsQueryDto,
 	): Promise<KycSubmissionPageDto> {
-		const [rows, total] = await this.submissions.findAndCount({
-			where: { status: query.status },
-			relations: { user: true },
-			order: { createdAt: 'ASC' },
-			take: query.limit,
-			skip: query.offset,
-		});
+		const rowsQuery = this.reviewQuery();
+		if (query.status) {
+			rowsQuery.andWhere('s.status = :status', { status: query.status });
+		}
+		this.applySearch(rowsQuery, query.search);
+
+		const oldestFirst = query.status === KycSubmissionStatus.Pending;
+		rowsQuery
+			.orderBy('s.createdAt', oldestFirst ? 'ASC' : 'DESC')
+			.addOrderBy('s.id', oldestFirst ? 'ASC' : 'DESC')
+			.offset(query.offset)
+			.limit(query.limit);
+
+		const countsQuery = this.submissions
+			.createQueryBuilder('s')
+			.innerJoin('s.user', 'u', 'u.deletedAt IS NULL')
+			.select('s.status', 'status')
+			.addSelect('count(*)::int', 'count')
+			.groupBy('s.status');
+		this.applySearch(countsQuery, query.search);
+
+		const [[rows, total], counted] = await Promise.all([
+			rowsQuery.getManyAndCount(),
+			countsQuery.getRawMany<{
+				status: KycSubmissionStatus;
+				count: number;
+			}>(),
+		]);
+
+		const counts: KycSubmissionCountsDto = {
+			all: 0,
+			pending: 0,
+			approved: 0,
+			rejected: 0,
+		};
+		for (const { status, count } of counted) {
+			counts[status] = count;
+			counts.all += count;
+		}
 
 		return new KycSubmissionPageDto(
 			rows.map((row) => this.toReview(row)),
 			new PageInfoDto(total, query),
+			counts,
 		);
 	}
 
+	async stats(): Promise<KycReviewStatsDto> {
+		const [row] = await this.dataSource.query<KycReviewStatsDto[]>(
+			`SELECT
+         count(*) FILTER (WHERE s."status" = 'pending')::int AS "pending",
+         count(*) FILTER (WHERE s."status" = 'approved'
+           AND s."reviewedAt" >= ${LAGOS_MIDNIGHT})::int AS "approvedToday",
+         count(*) FILTER (WHERE s."status" = 'rejected'
+           AND s."reviewedAt" >= ${LAGOS_MIDNIGHT})::int AS "rejectedToday"
+       FROM "kyc_submissions" s
+       JOIN "users" u ON u."id" = s."userId" AND u."deletedAt" IS NULL`,
+		);
+
+		return row;
+	}
+
 	async findForReview(id: string): Promise<KycSubmissionReviewDto> {
-		const row = await this.submissions.findOne({
-			where: { id },
-			relations: { user: true },
-		});
+		const row = await this.reviewQuery()
+			.andWhere('s.id = :id', { id })
+			.getOne();
 
 		if (!row) throw this.notFound();
 
@@ -188,7 +246,13 @@ export class KycService {
 				lock: { mode: 'pessimistic_write' },
 			});
 
-			if (!row) throw this.notFound();
+			const applicantExists =
+				row &&
+				(await manager.getRepository(User).exists({
+					where: { id: row.userId },
+				}));
+
+			if (!row || !applicantExists) throw this.notFound();
 
 			if (row.status !== KycSubmissionStatus.Pending) {
 				throw new ConflictException({
@@ -279,9 +343,42 @@ export class KycService {
 		}
 	}
 
+	/** The applicant, the reviewer's name and the profile photo, in one query. */
+	private reviewQuery(): SelectQueryBuilder<KycSubmission> {
+		return this.submissions
+			.createQueryBuilder('s')
+			.innerJoinAndSelect('s.user', 'u', 'u.deletedAt IS NULL')
+			.leftJoinAndSelect('u.photos', 'p', 'p.position = 0')
+			.leftJoin('s.reviewedBy', 'r')
+			.addSelect(['r.id', 'r.fullName']);
+	}
+
+	private applySearch(
+		query: SelectQueryBuilder<KycSubmission>,
+		search: string | undefined,
+	): void {
+		if (!search) return;
+
+		query.andWhere('(u.fullName ILIKE :search OR u.email ILIKE :search)', {
+			search: `%${escapeLike(search)}%`,
+		});
+	}
+
 	private toReview(row: KycSubmission): KycSubmissionReviewDto {
+		const avatar = row.user.photos?.[0];
+
 		return new KycSubmissionReviewDto(
 			row,
+			{
+				id: row.user.id,
+				fullName: row.user.fullName,
+				email: row.user.email,
+				phone: row.user.phone,
+				dateOfBirth: row.user.dateOfBirth,
+				avatarUrl: avatar
+					? this.storage.buildUrl(avatar.storageId, 'thumbnail')
+					: null,
+			},
 			new KycDocumentUrlsDto({
 				nationalId: this.storage.buildAuthenticatedUrl(
 					row.nationalIdStorageId,
