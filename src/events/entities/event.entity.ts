@@ -16,6 +16,7 @@ import { EventInvite } from './event-invite.entity';
 /** See the Events migration for why price is stored without any ticketing. */
 @Entity('events')
 @Index('IDX_events_hostId_startsAt', ['hostId', 'startsAt'])
+@Index('IDX_events_createdAt', ['createdAt'])
 export class Event extends BaseEntity {
 	@Column({ type: 'uuid' })
 	hostId!: string;

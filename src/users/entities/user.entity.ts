@@ -34,6 +34,7 @@ import { UserStatus } from './user-status.enum';
 	unique: true,
 	where: '"deletedAt" IS NULL AND "username" IS NOT NULL',
 })
+@Index('IDX_users_createdAt', ['createdAt'])
 export class User extends BaseEntity {
 	@Column({ length: 80 })
 	fullName!: string;

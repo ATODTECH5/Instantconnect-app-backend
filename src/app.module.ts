@@ -29,6 +29,7 @@ import { StorageModule } from './storage/storage.module';
 import { SupportModule } from './support/support.module';
 import { KycModule } from './kyc/kyc.module';
 import { UsersModule } from './users/users.module';
+import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 
 @Module({
 	imports: [
@@ -66,6 +67,7 @@ import { UsersModule } from './users/users.module';
 		DiscoveryModule,
 		PresenceModule,
 		HealthModule,
+		AdminDashboardModule,
 	],
 	providers: [
 		// Order matters: rate limiting runs before authentication so an

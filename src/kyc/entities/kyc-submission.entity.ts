@@ -48,6 +48,7 @@ export type KinRelationship = (typeof KIN_RELATIONSHIPS)[number];
 	unique: true,
 	where: `"status" = 'pending'`,
 })
+@Index('IDX_kyc_submissions_createdAt', ['createdAt'])
 export class KycSubmission extends BaseEntity {
 	@Column({ type: 'uuid' })
 	userId!: string;
