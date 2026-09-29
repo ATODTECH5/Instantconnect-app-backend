@@ -22,6 +22,8 @@ async function bootstrap(): Promise<void> {
 			? config.corsOrigins
 			: !config.isProduction,
 		credentials: true,
+		// Lets the admin dashboard read the filename of a CSV download.
+		exposedHeaders: ['Content-Disposition'],
 	});
 
 	app.setGlobalPrefix('api', { exclude: ['health'] });

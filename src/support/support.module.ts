@@ -10,5 +10,6 @@ import { SupportService } from './support.service';
 	imports: [TypeOrmModule.forFeature([SupportMessage, User])],
 	controllers: [SupportController],
 	providers: [SupportService],
+	exports: [SupportService],
 })
 export class SupportModule {}
