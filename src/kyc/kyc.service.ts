@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository, type SelectQueryBuilder } from 'typeorm';
 
 import { PageInfoDto } from '../common/dto/pagination.dto';
+import { escapeLike } from '../common/utils/csv.util';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Storage, type UploadSignature } from '../storage/storage';
@@ -34,8 +35,6 @@ const AUTHENTICATED = { authenticated: true } as const;
 
 /** Every member is in Lagos, so "today" starts at Lagos midnight. */
 const LAGOS_MIDNIGHT = `(date_trunc('day', now() AT TIME ZONE 'Africa/Lagos') AT TIME ZONE 'Africa/Lagos')`;
-
-const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
 
 const ADDITIONAL_ID_DOCUMENT: Record<KycAdditionalIdKind, KycDocumentKind> = {
 	[KycAdditionalIdKind.Passport]: KycDocumentKind.Passport,

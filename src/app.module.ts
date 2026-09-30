@@ -30,6 +30,8 @@ import { SupportModule } from './support/support.module';
 import { KycModule } from './kyc/kyc.module';
 import { UsersModule } from './users/users.module';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
+import { AdminEventsModule } from './admin-events/admin-events.module';
+import { AdminMeetupsModule } from './admin-meetups/admin-meetups.module';
 import { AdminUsersModule } from './admin-users/admin-users.module';
 
 @Module({
@@ -70,6 +72,8 @@ import { AdminUsersModule } from './admin-users/admin-users.module';
 		HealthModule,
 		AdminDashboardModule,
 		AdminUsersModule,
+		AdminEventsModule,
+		AdminMeetupsModule,
 	],
 	providers: [
 		// Order matters: rate limiting runs before authentication so an

@@ -4,6 +4,7 @@ import { DataSource, IsNull } from 'typeorm';
 import { RefreshToken } from '../auth/entities/refresh-token.entity';
 
 import { PageInfoDto } from '../common/dto/pagination.dto';
+import { csvLine, escapeLike } from '../common/utils/csv.util';
 import { Storage } from '../storage/storage';
 import { SupportMessageDto } from '../support/dto/support-message.dto';
 import { SupportService } from '../support/support.service';
@@ -93,24 +94,6 @@ type DetailRecord = RowRecord & {
 	eventsCreated: number;
 	connections: number;
 };
-
-const escapeLike = (value: string) => value.replace(/[\\%_]/g, '\\$&');
-
-/**
- * Quotes every cell, and defuses one a spreadsheet would run as a formula,
- * since names and bios are typed by members. A bare number such as a phone
- * cannot execute, so it keeps its leading plus.
- */
-const csvCell = (value: string | number | null): string => {
-	const text = value === null ? '' : String(value);
-	const isPlainNumber = /^[+-]?[\d\s().]+$/.test(text);
-	const safe =
-		/^[=+\-@\t\r]/.test(text) && !isPlainNumber ? `'${text}` : text;
-	return `"${safe.replace(/"/g, '""')}"`;
-};
-
-const csvLine = (cells: (string | number | null)[]) =>
-	`${cells.map(csvCell).join(',')}\r\n`;
 
 const isoOrNull = (date: Date | null) =>
 	date ? new Date(date).toISOString() : null;

@@ -22,4 +22,6 @@ export enum NotificationKind {
 	EventInvite = 'event_invite',
 	/** Someone joined an event you are hosting. */
 	EventJoined = 'event_joined',
+	/** An admin watching a live meetup asked both people to check they are safe. */
+	MeetupSafetyCheck = 'meetup_safety_check',
 }

@@ -103,6 +103,25 @@ export class Meetup extends BaseEntity {
 	@Column({ type: 'uuid', nullable: true })
 	cancelledById!: string | null;
 
+	/** Set by an admin on Live Connections. Cleared together on unflag. */
+	@Index('IDX_meetups_flaggedAt', { where: '"flaggedAt" IS NOT NULL' })
+	@Column({ type: 'timestamptz', nullable: true })
+	flaggedAt!: Date | null;
+
+	@Column({ type: 'uuid', nullable: true })
+	flaggedById!: string | null;
+
+	@ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+	@JoinColumn({
+		name: 'flaggedById',
+		foreignKeyConstraintName: 'FK_meetups_flaggedById',
+	})
+	flaggedBy!: User | null;
+
+	/** For admins only; never shown to either person. */
+	@Column({ type: 'varchar', length: 300, nullable: true })
+	flagReason!: string | null;
+
 	@OneToMany(() => MeetupParticipant, (party) => party.meetup)
 	participants!: MeetupParticipant[];
 }

@@ -562,6 +562,43 @@ export class MeetupsService {
 	}
 
 	/**
+	 * Admin only: switches live location off for both people and drops their
+	 * last fixes, the same as each of them turning it off. The meetup carries
+	 * on, and either person can switch sharing back on. Both apps hear about
+	 * it at once through `meetup.updated`.
+	 */
+	async stopAllLocationSharing(meetupId: string): Promise<void> {
+		const meetup = await this.dataSource.transaction(async (manager) => {
+			const row = await manager
+				.getRepository(Meetup)
+				.createQueryBuilder('meetup')
+				.setLock('pessimistic_write')
+				.where('meetup.id = :meetupId', { meetupId })
+				.getOne();
+
+			if (!row) throw this.notFound();
+
+			this.mustBeUnderway(row, 'stop tracking for');
+
+			row.participants = await manager
+				.getRepository(MeetupParticipant)
+				.find({ where: { meetupId } });
+
+			for (const party of row.participants) {
+				party.isSharingLocation = false;
+				party.lastLocation = null;
+				party.lastLocationAt = null;
+			}
+
+			await manager.save(row.participants);
+
+			return row;
+		});
+
+		this.broadcastState(meetup);
+	}
+
+	/**
 	 * One fix in, one fix out to the other party only. Refused while sharing
 	 * is off rather than silently dropped, so a client whose toggle and
 	 * server state disagree finds out.

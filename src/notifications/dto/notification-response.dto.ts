@@ -92,6 +92,11 @@ function describe(
 				title: 'New attendee',
 				body: `${who} is going to your event`,
 			};
+		case NotificationKind.MeetupSafetyCheck:
+			return {
+				title: 'Safety check',
+				body: 'Our team is checking in on your meetup. If you feel unsafe, leave and contact Help & Support',
+			};
 	}
 }
 
