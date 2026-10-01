@@ -22,6 +22,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 
+import { AllowDuringMaintenance } from '../common/decorators/allow-during-maintenance.decorator';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { ADMIN_SESSION_AUTH } from '../docs/swagger';
@@ -36,6 +37,7 @@ import { Session } from './session-context.decorator';
 import type { SessionContext } from './token-payload';
 
 @ApiTags('Admin Auth')
+@AllowDuringMaintenance()
 @ApiBadRequestResponse({ description: 'VALIDATION_FAILED', type: ApiErrorDto })
 @ApiTooManyRequestsResponse({ description: 'Rate limited', type: ApiErrorDto })
 @Public()

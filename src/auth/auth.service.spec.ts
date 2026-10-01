@@ -9,6 +9,7 @@ import { DataSource } from 'typeorm';
 
 import { hashSecret, verifySecret } from '../common/utils/hashing.util';
 import { Mailer } from '../mail/mailer';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import type { User } from '../users/entities/user.entity';
 import { KycStatus } from '../users/entities/kyc-status.enum';
@@ -124,6 +125,15 @@ describe('AuthService', () => {
 				},
 				{ provide: JwtService, useValue: jwt },
 				{ provide: DataSource, useValue: { transaction: jest.fn() } },
+				{
+					provide: PlatformSettingsService,
+					useValue: {
+						current: jest.fn().mockResolvedValue({
+							allowNewRegistrations: true,
+							minimumAge: 18,
+						}),
+					},
+				},
 				{
 					provide: authConfig.KEY,
 					useValue: {

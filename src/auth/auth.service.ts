@@ -16,7 +16,9 @@ import {
 	verifySecret,
 } from '../common/utils/hashing.util';
 import { toE164Nigerian } from '../common/utils/normalise.util';
+import { ageOn } from '../common/utils/age.util';
 import { Mailer } from '../mail/mailer';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { ReferralsService } from '../referrals/referrals.service';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
@@ -54,12 +56,30 @@ export class AuthService {
 		private readonly referrals: ReferralsService,
 		private readonly jwt: JwtService,
 		private readonly dataSource: DataSource,
+		private readonly platformSettings: PlatformSettingsService,
 		@Inject(authConfig.KEY)
 		private readonly config: ConfigType<typeof authConfig>,
 	) {}
 
 	async register(dto: RegisterDto): Promise<RegistrationResponseDto> {
 		const phone = toE164Nigerian(dto.phone);
+		const settings = await this.platformSettings.current();
+
+		if (!settings.allowNewRegistrations) {
+			throw new ForbiddenException({
+				code: 'REGISTRATION_CLOSED',
+				message:
+					'Instant Connect is not accepting new accounts right now. Please try again later.',
+			});
+		}
+
+		// The DTO already refuses anyone under the legal floor; this is the admin's higher bar.
+		if (ageOn(dto.dateOfBirth) < settings.minimumAge) {
+			throw new BadRequestException({
+				code: 'UNDER_MINIMUM_AGE',
+				message: `You must be at least ${settings.minimumAge} to use Instant Connect`,
+			});
+		}
 
 		if (await this.users.findByEmail(dto.email)) {
 			throw new ConflictException({

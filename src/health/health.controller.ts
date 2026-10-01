@@ -7,9 +7,11 @@ import {
 	TypeOrmHealthIndicator,
 } from '@nestjs/terminus';
 
+import { AllowDuringMaintenance } from '../common/decorators/allow-during-maintenance.decorator';
 import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Health')
+@AllowDuringMaintenance()
 @Controller('health')
 export class HealthController {
 	constructor(

@@ -1,5 +1,6 @@
 import {
 	BadRequestException,
+	ForbiddenException,
 	Injectable,
 	Logger,
 	NotFoundException,
@@ -13,9 +14,11 @@ import { ChatGateway } from '../chat/chat.gateway';
 import { ConnectionsService } from '../connections/connections.service';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { Category } from '../reference/entities/category.entity';
 import { Storage, type UploadSignature } from '../storage/storage';
 import { AVATAR_POSITION } from '../users/entities/user-photo.entity';
+import { KycStatus } from '../users/entities/kyc-status.enum';
 import { User } from '../users/entities/user.entity';
 import { UserStatus } from '../users/entities/user-status.enum';
 import {
@@ -92,6 +95,7 @@ export class EventsService {
 		private readonly blocks: BlocksService,
 		private readonly notifications: NotificationsService,
 		private readonly gateway: ChatGateway,
+		private readonly platformSettings: PlatformSettingsService,
 	) {}
 
 	createCoverUploadSignature(hostId: string): UploadSignature {
@@ -109,6 +113,20 @@ export class EventsService {
 		const inviteeIds = input.inviteeIds ?? [];
 
 		this.assertSchedule(startsAt, endsAt);
+
+		const settings = await this.platformSettings.current();
+
+		if (input.priceMinor > 0 && !settings.allowPaidEvents) {
+			throw new ForbiddenException({
+				code: 'PAID_EVENTS_DISABLED',
+				message:
+					'Paid events are switched off for now. Make it free to publish.',
+			});
+		}
+
+		if (settings.kycRequiredToCreateEvents) {
+			await this.assertKycVerified(hostId, 'host an event');
+		}
 
 		await Promise.all([
 			this.assertCategory(input.categoryId),
@@ -297,6 +315,10 @@ export class EventsService {
 				code: 'EVENT_TICKETS_UNAVAILABLE',
 				message: 'Tickets for paid events are not available yet.',
 			});
+		}
+
+		if ((await this.platformSettings.current()).kycRequiredToJoinEvents) {
+			await this.assertKycVerified(viewerId, 'join events');
 		}
 
 		const result = await this.attendees
@@ -491,6 +513,23 @@ export class EventsService {
 			throw new BadRequestException({
 				code: 'EVENT_END_BEFORE_START',
 				message: 'The end time must be after the start time.',
+			});
+		}
+	}
+
+	private async assertKycVerified(
+		userId: string,
+		action: string,
+	): Promise<void> {
+		const user = await this.dataSource.getRepository(User).findOne({
+			where: { id: userId },
+			select: { id: true, kycStatus: true },
+		});
+
+		if (user?.kycStatus !== KycStatus.Verified) {
+			throw new ForbiddenException({
+				code: 'KYC_REQUIRED',
+				message: `Verify your identity in KYC Verification to ${action}.`,
 			});
 		}
 	}

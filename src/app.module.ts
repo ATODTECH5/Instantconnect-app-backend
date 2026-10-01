@@ -32,7 +32,10 @@ import { UsersModule } from './users/users.module';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { AdminEventsModule } from './admin-events/admin-events.module';
 import { AdminMeetupsModule } from './admin-meetups/admin-meetups.module';
+import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
 import { AdminUsersModule } from './admin-users/admin-users.module';
+import { MaintenanceGuard } from './platform-settings/maintenance.guard';
+import { PlatformSettingsModule } from './platform-settings/platform-settings.module';
 
 @Module({
 	imports: [
@@ -43,6 +46,7 @@ import { AdminUsersModule } from './admin-users/admin-users.module';
 		}),
 		LoggingModule,
 		DatabaseModule,
+		PlatformSettingsModule,
 		ThrottlerModule.forRootAsync({
 			inject: [throttleConfig.KEY],
 			useFactory: (config: ConfigType<typeof throttleConfig>) => ({
@@ -74,6 +78,7 @@ import { AdminUsersModule } from './admin-users/admin-users.module';
 		AdminUsersModule,
 		AdminEventsModule,
 		AdminMeetupsModule,
+		AdminNotificationsModule,
 	],
 	providers: [
 		// Order matters: rate limiting runs before authentication so an
@@ -81,6 +86,8 @@ import { AdminUsersModule } from './admin-users/admin-users.module';
 		{ provide: APP_GUARD, useClass: ThrottlerGuard },
 		{ provide: APP_GUARD, useClass: JwtAuthGuard },
 		{ provide: APP_GUARD, useClass: RolesGuard },
+		// After authentication, so admins are let through while maintenance is on.
+		{ provide: APP_GUARD, useClass: MaintenanceGuard },
 		{ provide: APP_FILTER, useClass: AllExceptionsFilter },
 		// Interceptors run after guards, which is what puts `user` on the request.
 		{ provide: APP_INTERCEPTOR, useClass: PresenceInterceptor },

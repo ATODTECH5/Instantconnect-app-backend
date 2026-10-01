@@ -5,6 +5,7 @@ import { BlocksModule } from '../blocks/blocks.module';
 import { ChatModule } from '../chat/chat.module';
 import { ConnectionsModule } from '../connections/connections.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { Category } from '../reference/entities/category.entity';
 import { StorageModule } from '../storage/storage.module';
 import { EventAttendee } from './entities/event-attendee.entity';
@@ -21,6 +22,7 @@ import { EventsService } from './events.service';
 		ChatModule,
 		ConnectionsModule,
 		NotificationsModule,
+		PlatformSettingsModule,
 	],
 	controllers: [EventsController],
 	providers: [EventsService],
