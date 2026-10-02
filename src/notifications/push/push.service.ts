@@ -10,6 +10,7 @@ import { NotificationKind } from '../entities/notification-kind.enum';
 import { PushPlatform, PushToken } from '../entities/push-token.entity';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+const EXPO_TIMEOUT_MS = 10_000;
 
 /** Must match the channel the app creates on Android, or the push is dropped. */
 export const ANDROID_CHANNEL_ID = 'default';
@@ -160,6 +161,7 @@ export class PushService {
 					: null),
 			},
 			body: JSON.stringify(messages),
+			signal: AbortSignal.timeout(EXPO_TIMEOUT_MS),
 		});
 
 		if (!response.ok) {

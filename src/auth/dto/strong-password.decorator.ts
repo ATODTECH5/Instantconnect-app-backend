@@ -23,7 +23,7 @@ const REQUIREMENTS: { label: string; isMet: (value: string) => boolean }[] = [
 /** bcrypt's ceiling, kept so a future move off argon2 cannot silently truncate. */
 const MAX_LENGTH = 72;
 
-const unmetRequirements = (value: string): string[] =>
+export const unmetRequirements = (value: string): string[] =>
 	REQUIREMENTS.filter((rule) => !rule.isMet(value)).map((rule) => rule.label);
 
 function describe(missing: string[]): string {
