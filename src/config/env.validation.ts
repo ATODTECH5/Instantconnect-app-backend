@@ -105,6 +105,13 @@ export const envSchema = z.object({
 	CLOUDINARY_KYC_FOLDER: z.string().default('instant-connect/kyc'),
 	CLOUDINARY_EVENTS_FOLDER: z.string().default('instant-connect/events'),
 
+	/**
+	 * Only needed once "enhanced push security" is switched on for the project
+	 * at expo.dev. Without it, Expo accepts pushes for this project's tokens
+	 * from anyone holding one, which is the default for new projects.
+	 */
+	EXPO_ACCESS_TOKEN: optionalSecret,
+
 	THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 	THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
 

@@ -77,6 +77,12 @@ export const storageConfig = registerAs('storage', () => {
 	};
 });
 
+export const pushConfig = registerAs('push', () => {
+	const e = env();
+
+	return { expoAccessToken: e.EXPO_ACCESS_TOKEN };
+});
+
 export const throttleConfig = registerAs('throttle', () => {
 	const e = env();
 
@@ -89,5 +95,6 @@ export const configurations = [
 	authConfig,
 	mailConfig,
 	storageConfig,
+	pushConfig,
 	throttleConfig,
 ];

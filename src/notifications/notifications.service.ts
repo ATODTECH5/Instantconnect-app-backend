@@ -12,6 +12,7 @@ import {
 } from './dto/notification-response.dto';
 import { NotificationKind } from './entities/notification-kind.enum';
 import { Notification } from './entities/notification.entity';
+import { PushService } from './push/push.service';
 
 export type CreateNotification = {
 	userId: string;
@@ -26,6 +27,7 @@ export class NotificationsService {
 		@InjectRepository(Notification)
 		private readonly notifications: Repository<Notification>,
 		private readonly storage: Storage,
+		private readonly push: PushService,
 	) {}
 
 	/**
@@ -33,6 +35,9 @@ export class NotificationsService {
 	 * can put the same object on the socket it just stored. Emitting is the
 	 * caller's job rather than this service's: the socket gateway belongs to
 	 * chat, and importing it here would make the two modules circular.
+	 *
+	 * The push to the person's devices is started here but not awaited, so a
+	 * slow or unreachable Expo never holds up the request that raised it.
 	 */
 	async create(input: CreateNotification): Promise<NotificationResponseDto> {
 		const saved = await this.notifications.save(
@@ -44,7 +49,25 @@ export class NotificationsService {
 			}),
 		);
 
-		return this.toDto(await this.withActor(saved.id));
+		const notification = this.toDto(await this.withActor(saved.id));
+
+		void this.pushToDevices(input.userId, notification);
+
+		return notification;
+	}
+
+	/** The badge is the bell's count, so the app icon and Home agree. */
+	private async pushToDevices(
+		userId: string,
+		notification: NotificationResponseDto,
+	): Promise<void> {
+		try {
+			const badge = await this.countUnread(userId);
+
+			await this.push.send(userId, notification, badge);
+		} catch {
+			// PushService logs its own failures; this only guards the count.
+		}
 	}
 
 	async list(
