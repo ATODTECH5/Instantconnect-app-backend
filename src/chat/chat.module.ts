@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { authConfig } from '../config/configuration';
 import { BlocksModule } from '../blocks/blocks.module';
+import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { PresenceModule } from '../presence/presence.module';
 import { StorageModule } from '../storage/storage.module';
@@ -31,6 +32,7 @@ import { Message } from './entities/message.entity';
 		StorageModule,
 		PresenceModule,
 		NotificationsModule,
+		PlatformSettingsModule,
 		// Its own registration rather than AuthModule's, which does not export
 		// JwtModule. The gateway only ever verifies a token, never signs one.
 		JwtModule.registerAsync({

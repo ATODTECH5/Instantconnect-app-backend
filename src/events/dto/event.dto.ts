@@ -30,7 +30,7 @@ import {
 } from '../../discovery/dto/discovery-query.dto';
 import { KycStatus } from '../../users/entities/kyc-status.enum';
 import type { User } from '../../users/entities/user.entity';
-import type { Event } from '../entities/event.entity';
+import { type Event, ExternalEventSource } from '../entities/event.entity';
 
 const trim = Transform(({ value }: { value: unknown }) =>
 	typeof value === 'string' ? value.trim() : value,
@@ -261,9 +261,37 @@ export class EventCategoryDto {
 	}
 }
 
+/** Where an event came from: created in the app, or imported from a listing. */
+export const EventSource = {
+	InstantConnect: 'instant_connect',
+	...ExternalEventSource,
+} as const;
+
+export type EventSource = (typeof EventSource)[keyof typeof EventSource];
+
 export class EventSummaryDto {
 	@ApiProperty({ format: 'uuid' })
 	id: string;
+
+	@ApiProperty({
+		enum: Object.values(EventSource),
+		enumName: 'EventSource',
+		example: EventSource.InstantConnect,
+	})
+	source: EventSource;
+
+	@ApiPropertyOptional({
+		nullable: true,
+		description:
+			'Imported events only: where to register or buy a ticket, outside the app.',
+	})
+	externalUrl: string | null;
+
+	@ApiPropertyOptional({
+		nullable: true,
+		description: 'Imported events only: who runs the event.',
+	})
+	organizerName: string | null;
 
 	@ApiProperty()
 	title: string;
@@ -309,6 +337,9 @@ export class EventSummaryDto {
 
 	constructor(event: Event, coverUrl: string | null, people: EventPeople) {
 		this.id = event.id;
+		this.source = event.externalSource ?? EventSource.InstantConnect;
+		this.externalUrl = event.externalUrl;
+		this.organizerName = event.organizerName;
 		this.title = event.title;
 		this.startsAt = event.startsAt;
 		this.endsAt = event.endsAt;
@@ -374,8 +405,13 @@ export class EventDetailDto extends EventSummaryDto {
 	@ApiPropertyOptional({ nullable: true })
 	description: string | null;
 
-	@ApiProperty({ type: EventPersonDto })
-	host: EventPersonDto;
+	@ApiPropertyOptional({
+		type: EventPersonDto,
+		nullable: true,
+		description:
+			'Null for imported events; organizerName names who runs them.',
+	})
+	host: EventPersonDto | null;
 
 	@ApiProperty({ description: 'True when the viewer is the host.' })
 	isHost: boolean;
@@ -410,7 +446,7 @@ export class EventDetailDto extends EventSummaryDto {
 		coverUrl: string | null,
 		people: EventPeople,
 		viewer: {
-			host: EventPersonDto;
+			host: EventPersonDto | null;
 			isHost: boolean;
 			invitees: EventPersonDto[];
 			attendees: EventPersonDto[];

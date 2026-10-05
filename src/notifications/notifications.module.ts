@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { NotificationPreference } from '../settings/entities/notification-preference.entity';
+import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { StorageModule } from '../storage/storage.module';
 import { Notification } from './entities/notification.entity';
 import { PushToken } from './entities/push-token.entity';
@@ -27,6 +28,7 @@ import { PushService } from './push/push.service';
 			NotificationPreference,
 		]),
 		StorageModule,
+		PlatformSettingsModule,
 	],
 	controllers: [NotificationsController],
 	providers: [NotificationsService, PushService],

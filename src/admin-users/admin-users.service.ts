@@ -21,6 +21,7 @@ import {
 	type ExportAdminUsersQueryDto,
 	type JoinedWithin,
 	type ListAdminUsersQueryDto,
+	type UserPlan,
 } from './dto/admin-user-filters.dto';
 import { MessageAdminUserDto } from './dto/message-admin-user.dto';
 
@@ -53,10 +54,15 @@ const CSV_COLUMNS = [
 	'Last active',
 ] as const;
 
+/** The member's live subscription plan; null on the free plan. */
+const LIVE_PLAN = `(SELECT s."planId" FROM "subscriptions" s
+  WHERE s."userId" = u."id" AND s."status" IN ('active', 'non_renewing', 'past_due') LIMIT 1)`;
+
 const ROW_COLUMNS = `
   u."id", u."fullName", u."email", u."status", u."kycStatus", u."createdAt",
   p."storageId" AS "avatarStorageId",
-  (SELECT count(*) FROM "event_attendees" a WHERE a."userId" = u."id")::int AS "eventsAttended"
+  (SELECT count(*) FROM "event_attendees" a WHERE a."userId" = u."id")::int AS "eventsAttended",
+  COALESCE(${LIVE_PLAN}, 'free') AS "plan"
 `;
 
 const DETAIL_COLUMNS = `
@@ -83,6 +89,7 @@ type RowRecord = {
 	createdAt: Date;
 	avatarStorageId: string | null;
 	eventsAttended: number;
+	plan: UserPlan;
 };
 
 type DetailRecord = RowRecord & {
@@ -203,7 +210,7 @@ export class AdminUsersService {
 					row.locationLabel,
 					row.status,
 					row.kycStatus,
-					'free',
+					row.plan,
 					row.eventsAttended,
 					row.eventsCreated,
 					row.connections,
@@ -327,7 +334,9 @@ export class AdminUsersService {
 			clauses.push(`u."status" = ${bind(filters.status)}`);
 		if (filters.kycStatus)
 			clauses.push(`u."kycStatus" = ${bind(filters.kycStatus)}`);
-		if (filters.plan && filters.plan !== 'free') clauses.push('FALSE');
+		if (filters.plan === 'free') clauses.push(`${LIVE_PLAN} IS NULL`);
+		else if (filters.plan)
+			clauses.push(`${LIVE_PLAN} = ${bind(filters.plan)}`);
 		if (filters.joinedWithin) {
 			clauses.push(
 				`u."createdAt" >= now() - ${bind(JOINED_WITHIN_INTERVAL[filters.joinedWithin])}::interval`,
@@ -349,7 +358,7 @@ export class AdminUsersService {
 				: null,
 			status: row.status,
 			kycStatus: row.kycStatus,
-			plan: 'free',
+			plan: row.plan,
 			eventsAttended: row.eventsAttended,
 			joinedAt: new Date(row.createdAt).toISOString(),
 		};

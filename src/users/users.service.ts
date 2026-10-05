@@ -16,6 +16,8 @@ import {
 import { normaliseEmail } from '../common/utils/normalise.util';
 import { ConnectionsService } from '../connections/connections.service';
 import { EventAttendee } from '../events/entities/event-attendee.entity';
+import { CommunityMember } from '../communities/entities/community-member.entity';
+import { ContentPolicyService } from '../platform-settings/content-policy.service';
 import { ReferenceService } from '../reference/reference.service';
 import { Storage } from '../storage/storage';
 import {
@@ -71,6 +73,7 @@ export class UsersService {
 		private readonly reference: ReferenceService,
 		private readonly storage: Storage,
 		private readonly connections: ConnectionsService,
+		private readonly contentPolicy: ContentPolicyService,
 	) {}
 
 	findById(id: string): Promise<User | null> {
@@ -111,6 +114,7 @@ export class UsersService {
 				role: true,
 				status: true,
 				emailVerifiedAt: true,
+				lockedUntil: true,
 			},
 		});
 	}
@@ -141,7 +145,40 @@ export class UsersService {
 	}
 
 	async recordSignIn(userId: string): Promise<void> {
-		await this.users.update(userId, { lastSignedInAt: new Date() });
+		await this.users.update(userId, {
+			lastSignedInAt: new Date(),
+			failedSignInAttempts: 0,
+			lockedUntil: null,
+		});
+	}
+
+	/**
+	 * One statement, so two wrong passwords racing each other both count.
+	 * Reaching the limit locks the account and starts the count again.
+	 * Returns when the account is now locked until, or null if it is not.
+	 */
+	async recordFailedSignIn(
+		userId: string,
+		maxAttempts: number,
+		lockMinutes: number,
+	): Promise<Date | null> {
+		// TypeORM answers an UPDATE on Postgres with [rows, affectedCount].
+		const [rows] = await this.users.query<
+			[{ lockedUntil: Date | null }[], number]
+		>(
+			`UPDATE "users" SET
+				"lockedUntil" = CASE WHEN "failedSignInAttempts" + 1 >= $2
+					THEN $3::timestamptz ELSE "lockedUntil" END,
+				"failedSignInAttempts" = CASE WHEN "failedSignInAttempts" + 1 >= $2
+					THEN 0 ELSE "failedSignInAttempts" + 1 END
+			WHERE "id" = $1
+			RETURNING "lockedUntil"`,
+			// The app's clock, not the database's, since the app checks it.
+			[userId, maxAttempts, new Date(Date.now() + lockMinutes * 60_000)],
+		);
+		const lockedUntil = rows[0]?.lockedUntil ?? null;
+
+		return lockedUntil && lockedUntil > new Date() ? lockedUntil : null;
 	}
 
 	async updateSecurity(
@@ -212,6 +249,12 @@ export class UsersService {
 		userId: string,
 		changes: UpdateProfileDto,
 	): Promise<User> {
+		await this.contentPolicy.assertAllowed(
+			changes.fullName,
+			changes.bio,
+			changes.username,
+		);
+
 		const user = await this.getByIdOrFail(userId);
 
 		if (changes.categoryId !== undefined) {
@@ -271,17 +314,16 @@ export class UsersService {
 		);
 	}
 
-	/**
-	 * Counts the profile header renders. Communities have no table yet, so
-	 * they read zero rather than being invented client side.
-	 */
+	/** Counts the profile header renders. */
 	private async buildStats(userId: string): Promise<ProfileStatsDto> {
-		const [connections, eventsJoined] = await Promise.all([
+		const [connections, eventsJoined, memberships] = await Promise.all([
 			this.connections.countAccepted(userId),
 			this.attendees.count({ where: { userId } }),
+			this.users.manager.count(CommunityMember, { where: { userId } }),
 		]);
 
-		return { connections, eventsJoined, communities: 0 };
+		// Everyone is in the Safety Community, which has no membership row.
+		return { connections, eventsJoined, communities: memberships + 1 };
 	}
 
 	/**

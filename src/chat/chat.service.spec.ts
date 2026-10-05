@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 
 import { Storage } from '../storage/storage';
 import { BlocksService } from '../blocks/blocks.service';
+import { ContentPolicyService } from '../platform-settings/content-policy.service';
 import { PresenceRegistry } from '../presence/presence-registry';
 import { ChatGateway } from './chat.gateway';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -79,6 +80,12 @@ describe('ChatService', () => {
 
 		const moduleRef = await Test.createTestingModule({
 			providers: [
+				{
+					provide: ContentPolicyService,
+					useValue: {
+						assertAllowed: jest.fn().mockResolvedValue(undefined),
+					},
+				},
 				ChatService,
 				{
 					provide: getRepositoryToken(Conversation),

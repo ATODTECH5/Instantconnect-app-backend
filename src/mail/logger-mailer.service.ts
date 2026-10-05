@@ -45,6 +45,14 @@ export class LoggerMailer extends Mailer {
 		return this.deliver(kind.replace('-', ' '), to, firstName, code);
 	}
 
+	sendAdminAlert(to: string[], email: PlainEmail): Promise<void> {
+		this.logger.log(
+			`admin alert to <${to.join(', ')}>: ${email.subject}\n${email.text}`,
+		);
+
+		return Promise.resolve();
+	}
+
 	sendSafetyCheckIn(to: string, email: PlainEmail): Promise<void> {
 		if (this.config.isProduction) {
 			this.logger.error(

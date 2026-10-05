@@ -92,6 +92,21 @@ function describe(
 				title: 'New attendee',
 				body: `${who} is going to your event`,
 			};
+		case NotificationKind.CommunityInvite:
+			return {
+				title: 'Community invitation',
+				body: `${who} invited you to join a community`,
+			};
+		case NotificationKind.CommunityComment:
+			return {
+				title: 'New comment',
+				body: `${who} commented on your post`,
+			};
+		case NotificationKind.CommunityReply:
+			return {
+				title: 'New reply',
+				body: `${who} replied to your comment`,
+			};
 		case NotificationKind.MeetupSafetyCheck:
 			return {
 				title: 'Safety check',
@@ -120,7 +135,7 @@ export class NotificationResponseDto {
 		nullable: true,
 		format: 'uuid',
 		description:
-			'Conversation id for a message, connection id for the connection kinds, referral id for referral_joined, submission id for the kyc kinds, event id for event_invite.',
+			'Conversation id for a message, connection id for the connection kinds, referral id for referral_joined, submission id for the kyc kinds, event id for event_invite, community id for community_invite, post id for community_comment and community_reply.',
 	})
 	subjectId: string | null;
 

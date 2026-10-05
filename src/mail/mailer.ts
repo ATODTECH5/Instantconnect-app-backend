@@ -29,6 +29,9 @@ export abstract class Mailer {
 
 	/** A safety check-in to an outside contact. Copy is composed by the caller. */
 	abstract sendSafetyCheckIn(to: string, email: PlainEmail): Promise<void>;
+
+	/** An operational alert to the admin team, from Notification settings. */
+	abstract sendAdminAlert(to: string[], email: PlainEmail): Promise<void>;
 }
 
 export type PlainEmail = { subject: string; html: string; text: string };

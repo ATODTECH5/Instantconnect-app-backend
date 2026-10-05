@@ -162,7 +162,8 @@ export class AdminEventsService {
          count(*)::int AS "total",
          count(*) FILTER (WHERE COALESCE("endsAt", "startsAt") > now())::int AS "upcoming",
          count(*) FILTER (WHERE COALESCE("endsAt", "startsAt") <= now())::int AS "past"
-       FROM "events"`,
+       FROM "events"
+       WHERE "hostId" IS NOT NULL`,
 		);
 
 		return { ...row, revenueMinor: 0 };

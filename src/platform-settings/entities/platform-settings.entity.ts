@@ -41,6 +41,56 @@ export class PlatformSettings {
 	@Column({ default: true })
 	allowPaidEvents!: boolean;
 
+	/**
+	 * Platform wide push switches, one per category members can already
+	 * silence for themselves. Off stops the push only: the notification is
+	 * still stored and shown in the app. Safety checks ignore them.
+	 */
+	@Column({ default: true })
+	pushMessages!: boolean;
+
+	@Column({ default: true })
+	pushConnections!: boolean;
+
+	@Column({ default: true })
+	pushEvents!: boolean;
+
+	@Column({ default: true })
+	pushMeetups!: boolean;
+
+	@Column({ default: true })
+	pushKyc!: boolean;
+
+	@Column({ default: true })
+	pushCommunities!: boolean;
+
+	@Column({ default: false })
+	kycSubmittedAlert!: boolean;
+
+	@Column({ type: 'text', array: true, default: () => "'{}'" })
+	adminAlertEmails!: string[];
+
+	@Column({ default: true })
+	lockoutEnabled!: boolean;
+
+	@Column({ type: 'smallint', default: 5 })
+	lockoutMaxAttempts!: number;
+
+	@Column({ type: 'smallint', default: 15 })
+	lockoutMinutes!: number;
+
+	/** Refresh token lifetime when a member ticks "keep me signed in". */
+	@Column({ type: 'smallint', default: 30 })
+	keepSignedInDays!: number;
+
+	/** Lower case. Matched as whole words in member written text. */
+	@Column({ type: 'text', array: true, default: () => "'{}'" })
+	blockedWords!: string[];
+
+	/** Lower case hostnames; subdomains are blocked with them. */
+	@Column({ type: 'text', array: true, default: () => "'{}'" })
+	blockedDomains!: string[];
+
 	@UpdateDateColumn({ type: 'timestamptz' })
 	updatedAt!: Date;
 

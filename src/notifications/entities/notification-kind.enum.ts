@@ -24,4 +24,10 @@ export enum NotificationKind {
 	EventJoined = 'event_joined',
 	/** An admin watching a live meetup asked both people to check they are safe. */
 	MeetupSafetyCheck = 'meetup_safety_check',
+	/** A connection invited you to a community. */
+	CommunityInvite = 'community_invite',
+	/** Someone commented on your community post. */
+	CommunityComment = 'community_comment',
+	/** Someone replied to your comment on a community post. */
+	CommunityReply = 'community_reply',
 }

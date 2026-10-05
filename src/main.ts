@@ -9,7 +9,11 @@ import { appConfig } from './config/configuration';
 import { DOCS_PATH, docsAwareHelmet, setupSwagger } from './docs/swagger';
 
 async function bootstrap(): Promise<void> {
-	const app = await NestFactory.create(AppModule, { bufferLogs: true });
+	// rawBody keeps the exact bytes Paystack signed, for the webhook signature check.
+	const app = await NestFactory.create(AppModule, {
+		bufferLogs: true,
+		rawBody: true,
+	});
 	const config = app.get<ConfigType<typeof appConfig>>(appConfig.KEY);
 
 	app.useLogger(app.get(Logger));

@@ -13,6 +13,7 @@ import { IsNull, Repository } from 'typeorm';
 import { digestToken, generateOpaqueToken } from '../common/utils/hashing.util';
 import type { User } from '../users/entities/user.entity';
 import { UserStatus } from '../users/entities/user-status.enum';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { UsersService } from '../users/users.service';
 import { authConfig } from '../config/configuration';
 import type { IssuedTokens } from './dto/session-response.dto';
@@ -32,6 +33,7 @@ export class TokensService {
 		private readonly users: UsersService,
 		@Inject(authConfig.KEY)
 		private readonly config: ConfigType<typeof authConfig>,
+		private readonly platformSettings: PlatformSettingsService,
 	) {}
 
 	async issueSession(
@@ -119,7 +121,7 @@ export class TokensService {
 		const accessToken = await this.jwt.signAsync(payload);
 		const rawRefreshToken = generateOpaqueToken();
 		const ttlDays = context.keepSignedIn
-			? this.config.refreshTtlDays
+			? (await this.platformSettings.current()).keepSignedInDays
 			: this.config.refreshSessionTtlDays;
 		const expiresAt =
 			inheritedExpiry ??

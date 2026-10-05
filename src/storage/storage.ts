@@ -75,7 +75,24 @@ export abstract class Storage {
 	abstract buildEventCoverStorageId(hostId: string): string;
 
 	abstract isEventCoverStorageId(storageId: string, hostId: string): boolean;
+
+	/**
+	 * Community covers and post photos, under the uploader for the same reason
+	 * as event covers: the id is minted before the row it belongs to exists.
+	 */
+	abstract buildCommunityStorageId(
+		userId: string,
+		kind: CommunityMediaKind,
+	): string;
+
+	abstract isCommunityStorageId(
+		storageId: string,
+		userId: string,
+		kind: CommunityMediaKind,
+	): boolean;
 }
+
+export type CommunityMediaKind = 'cover' | 'post';
 
 export type UploadOptions = {
 	/**

@@ -225,7 +225,27 @@ export class AuthService {
 			throw this.invalidCredentials();
 		}
 
+		const settings = await this.platformSettings.current();
+
+		if (
+			settings.lockoutEnabled &&
+			user.lockedUntil &&
+			user.lockedUntil > new Date()
+		) {
+			throw this.accountLocked(user.lockedUntil);
+		}
+
 		if (!(await verifySecret(user.passwordHash, dto.password))) {
+			const lockedUntil = settings.lockoutEnabled
+				? await this.users.recordFailedSignIn(
+						user.id,
+						settings.lockoutMaxAttempts,
+						settings.lockoutMinutes,
+					)
+				: null;
+
+			if (lockedUntil) throw this.accountLocked(lockedUntil);
+
 			throw this.invalidCredentials();
 		}
 
@@ -313,7 +333,12 @@ export class AuthService {
 
 			if (!consumed.affected) throw this.invalidResetToken();
 
-			await manager.update(User, payload.sub, { passwordHash });
+			// A new password is the way out of a lockout, so it lifts one.
+			await manager.update(User, payload.sub, {
+				passwordHash,
+				failedSignInAttempts: 0,
+				lockedUntil: null,
+			});
 			await manager.update(
 				RefreshToken,
 				{ userId: payload.sub, revokedAt: IsNull() },
@@ -335,6 +360,23 @@ export class AuthService {
 		} catch {
 			throw this.invalidResetToken();
 		}
+	}
+
+	/**
+	 * Told only after the right email was used, which reveals the account
+	 * exists; that is the accepted price of telling people why they cannot
+	 * get in and how to get out.
+	 */
+	private accountLocked(lockedUntil: Date): ForbiddenException {
+		const minutes = Math.max(
+			1,
+			Math.ceil((lockedUntil.getTime() - Date.now()) / 60_000),
+		);
+
+		return new ForbiddenException({
+			code: 'ACCOUNT_LOCKED',
+			message: `Too many wrong passwords. Try again in ${minutes} minute${minutes === 1 ? '' : 's'}, or reset your password.`,
+		});
 	}
 
 	/** The code stays ACCOUNT_SUSPENDED: installed app builds already know it. */

@@ -2,6 +2,7 @@ import {
 	BadRequestException,
 	ConflictException,
 	Injectable,
+	Logger,
 	NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,8 +10,11 @@ import { DataSource, Repository, type SelectQueryBuilder } from 'typeorm';
 
 import { PageInfoDto } from '../common/dto/pagination.dto';
 import { escapeLike } from '../common/utils/csv.util';
+import { escapeHtml } from '../mail/code-email';
+import { Mailer } from '../mail/mailer';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { Storage, type UploadSignature } from '../storage/storage';
 import { KycStatus } from '../users/entities/kyc-status.enum';
 import { User } from '../users/entities/user.entity';
@@ -50,6 +54,8 @@ const ADDITIONAL_ID_DOCUMENT: Record<KycAdditionalIdKind, KycDocumentKind> = {
  */
 @Injectable()
 export class KycService {
+	private readonly logger = new Logger(KycService.name);
+
 	constructor(
 		@InjectRepository(KycSubmission)
 		private readonly submissions: Repository<KycSubmission>,
@@ -58,6 +64,8 @@ export class KycService {
 		private readonly dataSource: DataSource,
 		private readonly storage: Storage,
 		private readonly notifications: NotificationsService,
+		private readonly platformSettings: PlatformSettingsService,
+		private readonly mailer: Mailer,
 	) {}
 
 	async overview(userId: string): Promise<KycOverviewDto> {
@@ -129,7 +137,43 @@ export class KycService {
 				.update({ id: userId }, { kycStatus: KycStatus.Pending });
 		});
 
+		void this.alertAdmins(userId);
+
 		return this.overview(userId);
+	}
+
+	/**
+	 * Best effort and never awaited by the member: the submission is already
+	 * saved, and a mail outage must not turn it into an error on their screen.
+	 */
+	private async alertAdmins(userId: string): Promise<void> {
+		try {
+			const settings = await this.platformSettings.current();
+
+			if (
+				!settings.kycSubmittedAlert ||
+				settings.adminAlertEmails.length === 0
+			) {
+				return;
+			}
+
+			const user = await this.users.findOneOrFail({
+				where: { id: userId },
+				select: { id: true, fullName: true },
+			});
+			const subject = `New KYC submission from ${user.fullName}`;
+			const text = `${user.fullName} has submitted identity documents. Review them in the admin dashboard under KYC Verification.`;
+
+			await this.mailer.sendAdminAlert(settings.adminAlertEmails, {
+				subject,
+				text,
+				html: `<p>${escapeHtml(text)}</p>`,
+			});
+		} catch (error) {
+			this.logger.warn(
+				`Could not send the KYC admin alert for ${userId}: ${String(error)}`,
+			);
+		}
 	}
 
 	/**

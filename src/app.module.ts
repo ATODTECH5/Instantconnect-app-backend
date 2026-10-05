@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigType } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
 import { AuthModule } from './auth/auth.module';
 import { BlocksModule } from './blocks/blocks.module';
 import { ChatModule } from './chat/chat.module';
+import { CommunitiesModule } from './communities/communities.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ConnectionsModule } from './connections/connections.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
@@ -15,6 +18,7 @@ import { configurations, throttleConfig } from './config/configuration';
 import { DatabaseModule } from './database/database.module';
 import { DiscoveryModule } from './discovery/discovery.module';
 import { EventsModule } from './events/events.module';
+import { ExternalEventsModule } from './external-events/external-events.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
 import { MeetupsModule } from './meetups/meetups.module';
@@ -30,6 +34,8 @@ import { SupportModule } from './support/support.module';
 import { KycModule } from './kyc/kyc.module';
 import { UsersModule } from './users/users.module';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
+import { AdminCommunitiesModule } from './admin-communities/admin-communities.module';
+import { AdminSubscriptionsModule } from './admin-subscriptions/admin-subscriptions.module';
 import { AdminEventsModule } from './admin-events/admin-events.module';
 import { AdminMeetupsModule } from './admin-meetups/admin-meetups.module';
 import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
@@ -45,6 +51,7 @@ import { PlatformSettingsModule } from './platform-settings/platform-settings.mo
 			load: configurations,
 		}),
 		LoggingModule,
+		ScheduleModule.forRoot(),
 		DatabaseModule,
 		PlatformSettingsModule,
 		ThrottlerModule.forRootAsync({
@@ -71,12 +78,17 @@ import { PlatformSettingsModule } from './platform-settings/platform-settings.mo
 		MeetupsModule,
 		SafetyModule,
 		EventsModule,
+		ExternalEventsModule,
+		CommunitiesModule,
+		SubscriptionsModule,
 		DiscoveryModule,
 		PresenceModule,
 		HealthModule,
 		AdminDashboardModule,
 		AdminUsersModule,
 		AdminEventsModule,
+		AdminCommunitiesModule,
+		AdminSubscriptionsModule,
 		AdminMeetupsModule,
 		AdminNotificationsModule,
 	],

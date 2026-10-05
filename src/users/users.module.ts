@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { ConnectionsModule } from '../connections/connections.module';
 import { EventAttendee } from '../events/entities/event-attendee.entity';
+import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { ReferenceModule } from '../reference/reference.module';
 import { StorageModule } from '../storage/storage.module';
 import { AuthIdentity } from './entities/auth-identity.entity';
@@ -24,6 +25,7 @@ import { UsersService } from './users.service';
 		ReferenceModule,
 		StorageModule,
 		ConnectionsModule,
+		PlatformSettingsModule,
 	],
 	controllers: [UsersController, UserPhotosController],
 	providers: [UsersService, UserPhotosService],

@@ -6,6 +6,7 @@ import { v2 as cloudinary } from 'cloudinary';
 
 import type { storageConfig } from '../config/configuration';
 import {
+	type CommunityMediaKind,
 	Storage,
 	type PhotoVariant,
 	type StoredAsset,
@@ -83,6 +84,20 @@ export class CloudinaryStorage extends Storage {
 	isEventCoverStorageId(storageId: string, hostId: string): boolean {
 		return storageId.startsWith(
 			`${this.config.eventsFolder}/${hostId}/cover-`,
+		);
+	}
+
+	buildCommunityStorageId(userId: string, kind: CommunityMediaKind): string {
+		return `${this.config.communitiesFolder}/${userId}/${kind}-${randomUUID()}`;
+	}
+
+	isCommunityStorageId(
+		storageId: string,
+		userId: string,
+		kind: CommunityMediaKind,
+	): boolean {
+		return storageId.startsWith(
+			`${this.config.communitiesFolder}/${userId}/${kind}-`,
 		);
 	}
 

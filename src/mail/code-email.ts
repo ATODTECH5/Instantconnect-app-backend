@@ -59,7 +59,7 @@ const COPY: Record<
  * cannot carry markup today. Escaped anyway, because that rule living in a DTO
  * is not a reason for the template to depend on it.
  */
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
 	return value
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')

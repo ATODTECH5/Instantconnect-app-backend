@@ -6,6 +6,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { digestToken } from '../common/utils/hashing.util';
 import type { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
+import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { UsersService } from '../users/users.service';
 import { authConfig } from '../config/configuration';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -25,7 +26,6 @@ const CONTEXT: SessionContext = {
 };
 
 const config = {
-	refreshTtlDays: 30,
 	refreshSessionTtlDays: 1,
 } as unknown as ReturnType<typeof authConfig>;
 
@@ -95,6 +95,14 @@ describe('TokensService', () => {
 				},
 				{ provide: UsersService, useValue: users },
 				{ provide: authConfig.KEY, useValue: config },
+				{
+					provide: PlatformSettingsService,
+					useValue: {
+						current: jest
+							.fn()
+							.mockResolvedValue({ keepSignedInDays: 30 }),
+					},
+				},
 			],
 		}).compile();
 

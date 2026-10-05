@@ -16,8 +16,8 @@ import { UserStatus } from '../../users/entities/user-status.enum';
 
 export const MAX_EXPORT_SELECTION = 500;
 
-/** Subscriptions do not exist yet, so every member is on the free plan. */
-export const USER_PLANS = ['free', 'premium', 'business'] as const;
+/** Free is no live subscription; the others are subscription plan ids. */
+export const USER_PLANS = ['free', 'premium', 'pro'] as const;
 export type UserPlan = (typeof USER_PLANS)[number];
 
 export const JOINED_WITHIN = ['30d', '90d', '6m'] as const;

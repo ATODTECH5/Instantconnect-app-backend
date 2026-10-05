@@ -54,7 +54,6 @@ export const envSchema = z.object({
 		.string()
 		.regex(DURATION, DURATION_MESSAGE)
 		.default('10m'),
-	REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
 	REFRESH_TOKEN_SESSION_TTL_DAYS: z.coerce
 		.number()
 		.int()
@@ -104,6 +103,9 @@ export const envSchema = z.object({
 	/** Identity documents. Every asset under it is stored authenticated, never public. */
 	CLOUDINARY_KYC_FOLDER: z.string().default('instant-connect/kyc'),
 	CLOUDINARY_EVENTS_FOLDER: z.string().default('instant-connect/events'),
+	CLOUDINARY_COMMUNITIES_FOLDER: z
+		.string()
+		.default('instant-connect/communities'),
 
 	/**
 	 * Only needed once "enhanced push security" is switched on for the project
@@ -111,6 +113,29 @@ export const envSchema = z.object({
 	 * from anyone holding one, which is the default for new projects.
 	 */
 	EXPO_ACCESS_TOKEN: optionalSecret,
+
+	/**
+	 * A private token from Eventbrite's account settings. Eventbrite has no
+	 * public search, so events are imported from the organizers admins list
+	 * on the dashboard. Without it, the import is switched off.
+	 */
+	EVENTBRITE_TOKEN: optionalSecret,
+
+	/**
+	 * Paystack secret key (sk_test_... or sk_live_...). It authenticates API
+	 * calls and signs webhooks. Absent means checkout answers 503
+	 * PAYMENTS_NOT_CONFIGURED and every member stays on the free plan.
+	 */
+	PAYSTACK_SECRET_KEY: optionalSecret,
+	/** Where Paystack sends the buyer back: the app's checkout completion screen. */
+	PAYSTACK_CALLBACK_URL: z
+		.string()
+		.default('instantconnectclient://profile/subscription/complete'),
+	/**
+	 * This API's public address, shown on the dashboard as the webhook URL to
+	 * paste into Paystack. Optional; only the hint depends on it.
+	 */
+	PUBLIC_API_URL: optionalSecret,
 
 	THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 	THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),

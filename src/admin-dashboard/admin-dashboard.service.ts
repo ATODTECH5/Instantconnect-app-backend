@@ -26,7 +26,9 @@ const REPORTING_TIME_ZONE = 'Africa/Lagos';
 const MEMBER_FILTER = `"role" = 'user' AND "deletedAt" IS NULL`;
 
 /** An event without an end time is over once it has started. */
-const EVENT_STILL_ON = (at: string) => `COALESCE("endsAt", "startsAt") > ${at}`;
+/** Member events only; imported listings are not activity on the platform. */
+const EVENT_STILL_ON = (at: string) =>
+	`"hostId" IS NOT NULL AND COALESCE("endsAt", "startsAt") > ${at}`;
 
 type StatsRow = {
 	totalUsers: number;
@@ -158,7 +160,8 @@ export class AdminDashboardService {
              ORDER BY "createdAt" DESC LIMIT $1)
           UNION ALL
           (SELECT "id", 'event_created', "hostId", "createdAt", "title", NULL
-             FROM "events" ORDER BY "createdAt" DESC LIMIT $1)
+             FROM "events" WHERE "hostId" IS NOT NULL
+             ORDER BY "createdAt" DESC LIMIT $1)
           UNION ALL
           (SELECT "id", 'kyc_submitted', "userId", "createdAt", NULL, "status"::text
              FROM "kyc_submissions" ORDER BY "createdAt" DESC LIMIT $1)

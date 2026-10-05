@@ -128,6 +128,13 @@ export class User extends BaseEntity {
 	@Column({ type: 'timestamptz', nullable: true })
 	lastSignedInAt!: Date | null;
 
+	/** Wrong passwords since the last success or lockout; see Security settings. */
+	@Column({ type: 'smallint', default: 0, select: false })
+	failedSignInAttempts!: number;
+
+	@Column({ type: 'timestamptz', nullable: true, select: false })
+	lockedUntil!: Date | null;
+
 	/**
 	 * Last authenticated request, written at most once per touch interval by
 	 * `PresenceService`. Null for an account that has not been seen since

@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 
 import { pushConfig } from '../../config/configuration';
+import type { PlatformSettings } from '../../platform-settings/entities/platform-settings.entity';
+import { PlatformSettingsService } from '../../platform-settings/platform-settings.service';
 import { NotificationPreference } from '../../settings/entities/notification-preference.entity';
 import type { NotificationResponseDto } from '../dto/notification-response.dto';
 import { NotificationKind } from '../entities/notification-kind.enum';
@@ -31,6 +33,36 @@ const PREFERENCE_FOR_KIND: Partial<Record<NotificationKind, PreferenceKey>> = {
 	[NotificationKind.ConnectionAccepted]: 'pushNewConnections',
 	[NotificationKind.EventInvite]: 'pushEventReminders',
 	[NotificationKind.EventJoined]: 'pushEventReminders',
+};
+
+type PlatformSwitch = keyof Pick<
+	PlatformSettings,
+	| 'pushMessages'
+	| 'pushConnections'
+	| 'pushEvents'
+	| 'pushMeetups'
+	| 'pushKyc'
+	| 'pushCommunities'
+>;
+
+/** The admin's platform wide switch for each kind, from Notification settings. */
+const PLATFORM_SWITCH_FOR_KIND: Partial<
+	Record<NotificationKind, PlatformSwitch>
+> = {
+	[NotificationKind.Message]: 'pushMessages',
+	[NotificationKind.ConnectionRequest]: 'pushConnections',
+	[NotificationKind.ConnectionAccepted]: 'pushConnections',
+	[NotificationKind.EventInvite]: 'pushEvents',
+	[NotificationKind.EventJoined]: 'pushEvents',
+	[NotificationKind.MeetupProposed]: 'pushMeetups',
+	[NotificationKind.MeetupAccepted]: 'pushMeetups',
+	[NotificationKind.MeetupDeclined]: 'pushMeetups',
+	[NotificationKind.MeetupCancelled]: 'pushMeetups',
+	[NotificationKind.KycApproved]: 'pushKyc',
+	[NotificationKind.KycRejected]: 'pushKyc',
+	[NotificationKind.CommunityInvite]: 'pushCommunities',
+	[NotificationKind.CommunityComment]: 'pushCommunities',
+	[NotificationKind.CommunityReply]: 'pushCommunities',
 };
 
 /**
@@ -72,6 +104,7 @@ export class PushService {
 		private readonly preferences: Repository<NotificationPreference>,
 		@Inject(pushConfig.KEY)
 		private readonly config: ConfigType<typeof pushConfig>,
+		private readonly platformSettings: PlatformSettingsService,
 	) {}
 
 	/**
@@ -136,6 +169,15 @@ export class PushService {
 		kind: NotificationKind,
 	): Promise<boolean> {
 		if (ALWAYS_DELIVERED.has(kind)) return true;
+
+		const platformSwitch = PLATFORM_SWITCH_FOR_KIND[kind];
+
+		if (
+			platformSwitch &&
+			!(await this.platformSettings.current())[platformSwitch]
+		) {
+			return false;
+		}
 
 		// No row means the screen was never opened, and its defaults are on.
 		const preference = await this.preferences.findOne({

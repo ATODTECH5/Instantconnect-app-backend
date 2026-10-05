@@ -36,6 +36,14 @@ export class UnconfiguredStorage extends Storage {
 		throw this.notConfigured();
 	}
 
+	buildCommunityStorageId(): string {
+		throw this.notConfigured();
+	}
+
+	isCommunityStorageId(): boolean {
+		throw this.notConfigured();
+	}
+
 	buildAuthenticatedUrl(storageId: string): string {
 		return storageId;
 	}

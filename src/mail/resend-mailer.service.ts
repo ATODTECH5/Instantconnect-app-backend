@@ -51,6 +51,23 @@ export class ResendMailer extends Mailer {
 		return this.deliver(kind, to, firstName, code);
 	}
 
+	/** Throws on failure; callers treat the alert as best effort. */
+	async sendAdminAlert(to: string[], email: PlainEmail): Promise<void> {
+		const { error, data } = await this.resend.emails.send({
+			from: this.mail.from,
+			to,
+			...email,
+		});
+
+		if (error) {
+			throw new Error(
+				`Resend rejected the admin alert: ${error.name} ${error.message}`,
+			);
+		}
+
+		this.logger.log(`Sent admin alert "${email.subject}" (id ${data.id})`);
+	}
+
 	async sendSafetyCheckIn(to: string, email: PlainEmail): Promise<void> {
 		const { error, data } = await this.resend.emails.send({
 			from: this.mail.from,

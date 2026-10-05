@@ -16,6 +16,7 @@ import { ChatGateway } from './chat.gateway';
 import { MeetupResponseDto } from '../meetups/dto/meetup-response.dto';
 import type { Meetup } from '../meetups/entities/meetup.entity';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
+import { ContentPolicyService } from '../platform-settings/content-policy.service';
 import { BlocksService } from '../blocks/blocks.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { Storage, type UploadSignature } from '../storage/storage';
@@ -64,6 +65,7 @@ export class ChatService {
 		private readonly gateway: ChatGateway,
 		private readonly presence: PresenceRegistry,
 		private readonly blocks: BlocksService,
+		private readonly contentPolicy: ContentPolicyService,
 	) {}
 
 	/**
@@ -226,6 +228,8 @@ export class ChatService {
 				message: 'A message carries either text or an image, not both.',
 			});
 		}
+
+		await this.contentPolicy.assertAllowed(body);
 
 		if (mediaStorageId !== undefined) {
 			await this.assertUploadUsable(

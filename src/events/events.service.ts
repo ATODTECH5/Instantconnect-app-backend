@@ -14,6 +14,7 @@ import { ChatGateway } from '../chat/chat.gateway';
 import { ConnectionsService } from '../connections/connections.service';
 import { NotificationKind } from '../notifications/entities/notification-kind.enum';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ContentPolicyService } from '../platform-settings/content-policy.service';
 import { PlatformSettingsService } from '../platform-settings/platform-settings.service';
 import { Category } from '../reference/entities/category.entity';
 import { Storage, type UploadSignature } from '../storage/storage';
@@ -96,6 +97,7 @@ export class EventsService {
 		private readonly notifications: NotificationsService,
 		private readonly gateway: ChatGateway,
 		private readonly platformSettings: PlatformSettingsService,
+		private readonly contentPolicy: ContentPolicyService,
 	) {}
 
 	createCoverUploadSignature(hostId: string): UploadSignature {
@@ -113,6 +115,12 @@ export class EventsService {
 		const inviteeIds = input.inviteeIds ?? [];
 
 		this.assertSchedule(startsAt, endsAt);
+		await this.contentPolicy.assertAllowed(
+			input.title,
+			input.description,
+			input.venue.name,
+			input.venue.address,
+		);
 
 		const settings = await this.platformSettings.current();
 
@@ -183,7 +191,7 @@ export class EventsService {
 	): Promise<EventPageDto> {
 		const base = this.events
 			.createQueryBuilder('event')
-			.innerJoin('event.host', 'host')
+			.leftJoin('event.host', 'host')
 			.where(
 				query.role === EventRole.Host
 					? 'event.hostId = :viewerId'
@@ -235,7 +243,8 @@ export class EventsService {
 	 * saved location, soonest first. The viewer's own public events are
 	 * included, so a host sees what everyone else nearby sees. An account with
 	 * no location matches nothing rather than failing, since Home already
-	 * asks for a location through the people rail.
+	 * asks for a location through the people rail. Imported events have no
+	 * host, so the host checks pass them through.
 	 */
 	async listNearby(
 		viewerId: string,
@@ -243,10 +252,10 @@ export class EventsService {
 	): Promise<NearbyEventPageDto> {
 		const base = this.events
 			.createQueryBuilder('event')
-			.innerJoin('event.host', 'host')
+			.leftJoin('event.host', 'host')
 			.where('event.isPublic = true')
 			.andWhere(`${ENDS_OR_STARTS} >= :now`)
-			.andWhere('host.status = :active')
+			.andWhere('(event.hostId IS NULL OR host.status = :active)')
 			.andWhere(
 				`ST_DWithin(event.venueLocation, ${VIEWER_ORIGIN}, :radius)`,
 			)
@@ -294,9 +303,11 @@ export class EventsService {
 	}
 
 	/**
-	 * Free events only: there is no checkout, so a paid event would be joined
-	 * without anyone paying. Joining twice is one join, and only the first
-	 * tells the host.
+	 * Member events must be free: there is no checkout, so a paid one would be
+	 * joined without anyone paying. An imported event can be joined whatever it
+	 * costs, because the ticket is bought on the organiser's own page and going
+	 * only tells other members you will be there. Joining twice is one join,
+	 * and only the first tells the host.
 	 */
 	async join(viewerId: string, id: string): Promise<EventDetailDto> {
 		const event = await this.visibleEvent(viewerId, id);
@@ -310,7 +321,7 @@ export class EventsService {
 
 		this.assertNotEnded(event);
 
-		if (event.priceMinor > 0) {
+		if (event.priceMinor > 0 && !event.externalSource) {
 			throw new BadRequestException({
 				code: 'EVENT_TICKETS_UNAVAILABLE',
 				message: 'Tickets for paid events are not available yet.',
@@ -329,7 +340,7 @@ export class EventsService {
 			.orIgnore()
 			.execute();
 
-		if ((result.raw as unknown[]).length > 0) {
+		if ((result.raw as unknown[]).length > 0 && event.hostId) {
 			await this.notify(
 				event.hostId,
 				NotificationKind.EventJoined,
@@ -376,6 +387,10 @@ export class EventsService {
 				priceMinor: true,
 				isPublic: true,
 				coverStorageId: true,
+				externalSource: true,
+				externalUrl: true,
+				externalCoverUrl: true,
+				organizerName: true,
 				category: { id: true, label: true },
 				host: PERSON_SELECT,
 			},
@@ -415,7 +430,7 @@ export class EventsService {
 				attendeePreview: attendees.slice(0, CARD_FACES),
 			},
 			{
-				host: this.toPerson(event.host),
+				host: event.host ? this.toPerson(event.host) : null,
 				isHost,
 				invitees: visibleInvitees,
 				attendees,
@@ -439,6 +454,7 @@ export class EventsService {
 				startsAt: true,
 				endsAt: true,
 				priceMinor: true,
+				externalSource: true,
 			},
 		});
 
@@ -447,7 +463,9 @@ export class EventsService {
 		const [isInvited, isAttending, isBlocked] = await Promise.all([
 			this.invites.exists({ where: { eventId: id, userId: viewerId } }),
 			this.attendees.exists({ where: { eventId: id, userId: viewerId } }),
-			this.blocks.isBlockedEitherWay(viewerId, event.hostId),
+			event.hostId
+				? this.blocks.isBlockedEitherWay(viewerId, event.hostId)
+				: false,
 		]);
 		const canSee =
 			event.isPublic ||
@@ -798,7 +816,7 @@ export class EventsService {
 	private coverUrl(event: Event): string | null {
 		return event.coverStorageId
 			? this.storage.buildUrl(event.coverStorageId, 'full')
-			: null;
+			: event.externalCoverUrl;
 	}
 
 	private notFound(): NotFoundException {

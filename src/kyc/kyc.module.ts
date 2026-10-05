@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { MailModule } from '../mail/mail.module';
+import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { StorageModule } from '../storage/storage.module';
 import { User } from '../users/entities/user.entity';
@@ -13,6 +15,8 @@ import { KycService } from './kyc.service';
 		TypeOrmModule.forFeature([KycSubmission, User]),
 		StorageModule,
 		NotificationsModule,
+		MailModule,
+		PlatformSettingsModule,
 	],
 	controllers: [KycController],
 	providers: [KycService],

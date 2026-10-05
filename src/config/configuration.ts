@@ -43,7 +43,6 @@ export const authConfig = registerAs('auth', () => {
 		accessTtl: e.JWT_ACCESS_TTL as DurationString,
 		passwordResetSecret: e.JWT_PASSWORD_RESET_SECRET,
 		passwordResetTtl: e.JWT_PASSWORD_RESET_TTL as DurationString,
-		refreshTtlDays: e.REFRESH_TOKEN_TTL_DAYS,
 		refreshSessionTtlDays: e.REFRESH_TOKEN_SESSION_TTL_DAYS,
 		adminCookieDomain: e.ADMIN_COOKIE_DOMAIN,
 		secureCookies: e.NODE_ENV === 'production',
@@ -69,6 +68,7 @@ export const storageConfig = registerAs('storage', () => {
 		chatFolder: e.CLOUDINARY_CHAT_FOLDER,
 		kycFolder: e.CLOUDINARY_KYC_FOLDER,
 		eventsFolder: e.CLOUDINARY_EVENTS_FOLDER,
+		communitiesFolder: e.CLOUDINARY_COMMUNITIES_FOLDER,
 		isConfigured: Boolean(
 			e.CLOUDINARY_CLOUD_NAME &&
 			e.CLOUDINARY_API_KEY &&
@@ -81,6 +81,22 @@ export const pushConfig = registerAs('push', () => {
 	const e = env();
 
 	return { expoAccessToken: e.EXPO_ACCESS_TOKEN };
+});
+
+export const externalEventsConfig = registerAs('externalEvents', () => {
+	const e = env();
+
+	return { eventbriteToken: e.EVENTBRITE_TOKEN };
+});
+
+export const paymentsConfig = registerAs('payments', () => {
+	const e = env();
+
+	return {
+		paystackSecretKey: e.PAYSTACK_SECRET_KEY,
+		callbackUrl: e.PAYSTACK_CALLBACK_URL,
+		publicApiUrl: e.PUBLIC_API_URL?.replace(/\/+$/, ''),
+	};
 });
 
 export const throttleConfig = registerAs('throttle', () => {
@@ -96,5 +112,7 @@ export const configurations = [
 	mailConfig,
 	storageConfig,
 	pushConfig,
+	externalEventsConfig,
+	paymentsConfig,
 	throttleConfig,
 ];

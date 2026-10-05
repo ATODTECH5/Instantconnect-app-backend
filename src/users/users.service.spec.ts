@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
 import { ConnectionsService } from '../connections/connections.service';
+import { ContentPolicyService } from '../platform-settings/content-policy.service';
 import { EventAttendee } from '../events/entities/event-attendee.entity';
 import { ReferenceService } from '../reference/reference.service';
 import { Storage } from '../storage/storage';
@@ -54,6 +55,12 @@ describe('UsersService.updateProfile', () => {
 
 		const moduleRef = await Test.createTestingModule({
 			providers: [
+				{
+					provide: ContentPolicyService,
+					useValue: {
+						assertAllowed: jest.fn().mockResolvedValue(undefined),
+					},
+				},
 				UsersService,
 				{ provide: getRepositoryToken(User), useValue: users },
 				{
@@ -162,8 +169,19 @@ describe('UsersService.toProfile', () => {
 	beforeEach(async () => {
 		const moduleRef = await Test.createTestingModule({
 			providers: [
+				{
+					provide: ContentPolicyService,
+					useValue: {
+						assertAllowed: jest.fn().mockResolvedValue(undefined),
+					},
+				},
 				UsersService,
-				{ provide: getRepositoryToken(User), useValue: {} },
+				{
+					provide: getRepositoryToken(User),
+					useValue: {
+						manager: { count: jest.fn().mockResolvedValue(0) },
+					},
+				},
 				{
 					provide: getRepositoryToken(EventAttendee),
 					useValue: { count: jest.fn().mockResolvedValue(0) },
