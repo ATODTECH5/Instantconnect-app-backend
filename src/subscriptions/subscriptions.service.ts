@@ -239,15 +239,17 @@ export class SubscriptionsService {
 
 	/**
 	 * Stops renewals at Paystack and keeps the plan until the paid period
-	 * ends. Paystack sends the codes this needs a moment after the first
-	 * charge, so a cancel in that window is asked to wait.
+	 * ends. The codes this needs normally arrive by webhook; when that was
+	 * lost, they are fetched from Paystack first.
 	 */
 	async cancel(userId: string): Promise<MySubscriptionDto> {
-		const live = await this.liveSubscription(userId);
+		const found = await this.liveSubscription(userId);
 
-		if (!live || live.status === SubscriptionStatus.NonRenewing) {
+		if (!found || found.status === SubscriptionStatus.NonRenewing) {
 			return this.current(userId);
 		}
+
+		const live = await this.withPaystackCodes(found);
 
 		if (!live.paystackSubscriptionCode || !live.paystackEmailToken) {
 			throw new ConflictException({
@@ -545,6 +547,39 @@ export class SubscriptionsService {
 			paystackAuthorizationCode:
 				authorizationCodeOf(tx) ?? live.paystackAuthorizationCode,
 		});
+	}
+
+	/**
+	 * subscription.create can reach the API before the charge that creates
+	 * the row; it then matches nothing and Paystack does not resend it. This
+	 * recovers the codes from the customer's subscriptions on that plan.
+	 */
+	private async withPaystackCodes(live: Subscription): Promise<Subscription> {
+		if (live.paystackSubscriptionCode && live.paystackEmailToken)
+			return live;
+		if (!live.paystackCustomerCode || !live.paystackPlanCode) return live;
+
+		const candidates = (
+			await this.paystack.customerSubscriptions(live.paystackCustomerCode)
+		).filter((sub) => sub.status === 'active' && sub.email_token);
+
+		for (const candidate of candidates) {
+			const full = await this.paystack.fetchSubscription(
+				candidate.subscription_code,
+			);
+
+			if (full.plan?.plan_code !== live.paystackPlanCode) continue;
+
+			const codes = {
+				paystackSubscriptionCode: candidate.subscription_code,
+				paystackEmailToken: candidate.email_token,
+			};
+			await this.subscriptions.update(live.id, codes);
+
+			return Object.assign(live, codes);
+		}
+
+		return live;
 	}
 
 	private async attachPaystackSubscription(

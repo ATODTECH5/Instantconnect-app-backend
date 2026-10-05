@@ -41,6 +41,13 @@ export type PaystackTransaction = {
 		{ userId?: string; planId?: string; cycle?: string } | string | null;
 };
 
+export type PaystackSubscription = {
+	subscription_code: string;
+	email_token: string | null;
+	status: string;
+	plan: { plan_code?: string } | null;
+};
+
 export type PaystackInitialized = {
 	authorization_url: string;
 	access_code: string;
@@ -137,6 +144,21 @@ export class PaystackClient {
 	/** Stops future charges; the current period stays paid. */
 	disableSubscription(code: string, token: string): Promise<unknown> {
 		return this.request('POST', '/subscription/disable', { code, token });
+	}
+
+	/** A customer's subscriptions; the plan comes back empty here, so fetch one for it. */
+	async customerSubscriptions(
+		customerCode: string,
+	): Promise<PaystackSubscription[]> {
+		const customer = await this.request<{
+			subscriptions?: PaystackSubscription[];
+		}>('GET', `/customer/${encodeURIComponent(customerCode)}`);
+
+		return customer.subscriptions ?? [];
+	}
+
+	fetchSubscription(code: string): Promise<PaystackSubscription> {
+		return this.request('GET', `/subscription/${encodeURIComponent(code)}`);
 	}
 
 	/**
