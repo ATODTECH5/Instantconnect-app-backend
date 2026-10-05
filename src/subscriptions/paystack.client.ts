@@ -11,6 +11,8 @@ import type { ConfigType } from '@nestjs/config';
 import { paymentsConfig } from '../config/configuration';
 
 const API_URL = 'https://api.paystack.co';
+
+const CANCEL_URL = 'https://standard.paystack.co/close';
 const TIMEOUT_MS = 15_000;
 
 type Envelope<T> = { status: boolean; message: string; data: T };
@@ -99,7 +101,7 @@ export class PaystackClient {
 			plan: input.plan,
 			reference: input.reference,
 			callback_url: input.callbackUrl,
-			metadata: input.metadata,
+			metadata: { ...input.metadata, cancel_action: CANCEL_URL },
 		});
 	}
 
