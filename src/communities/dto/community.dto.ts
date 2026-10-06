@@ -55,6 +55,20 @@ export class CommunityPersonDto {
 		this.avatarUrl = avatarUrl;
 		this.isVerified = user.kycStatus === KycStatus.Verified;
 	}
+
+	/**
+	 * Platform admins post to the Safety Community as the team, so members
+	 * never see which staff account wrote it. The id is the community's.
+	 */
+	static safetyTeam(communityId: string): CommunityPersonDto {
+		return Object.assign(Object.create(CommunityPersonDto.prototype), {
+			id: communityId,
+			fullName: 'Safety Team',
+			username: null,
+			avatarUrl: null,
+			isVerified: true,
+		}) as CommunityPersonDto;
+	}
 }
 
 export class CommunityCategoryDto {

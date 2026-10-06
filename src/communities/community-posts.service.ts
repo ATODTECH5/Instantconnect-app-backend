@@ -18,6 +18,7 @@ import { NotificationKind } from '../notifications/entities/notification-kind.en
 import { NotificationsService } from '../notifications/notifications.service';
 import { ContentPolicyService } from '../platform-settings/content-policy.service';
 import { Storage } from '../storage/storage';
+import type { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/entities/user-role.enum';
 import {
 	type CommunityAccess,
@@ -34,6 +35,7 @@ import {
 	type CreateCommunityPostDto,
 	type ReportCommunityPostDto,
 } from './dto/community-post.dto';
+import { CommunityPersonDto } from './dto/community.dto';
 import { CommunityCommentLike } from './entities/community-comment-like.entity';
 import { CommunityComment } from './entities/community-comment.entity';
 import { CommunityMember } from './entities/community-member.entity';
@@ -341,7 +343,7 @@ export class CommunityPostsService {
 		const likedIds = new Set(liked.map((row) => row.commentId));
 		const toReply = (comment: CommunityComment) =>
 			new CommunityReplyDto(comment, {
-				author: this.communities.toPerson(comment.author),
+				author: this.authorOf(access, comment.author, admins),
 				authorIsAdmin: admins.has(comment.authorId),
 				hasLiked: likedIds.has(comment.id),
 				canDelete: comment.authorId === viewerId || access.isAdmin,
@@ -353,7 +355,11 @@ export class CommunityPostsService {
 					new CommunityCommentDto(
 						comment,
 						{
-							author: this.communities.toPerson(comment.author),
+							author: this.authorOf(
+								access,
+								comment.author,
+								admins,
+							),
 							authorIsAdmin: admins.has(comment.authorId),
 							hasLiked: likedIds.has(comment.id),
 							canDelete:
@@ -453,7 +459,7 @@ export class CommunityPostsService {
 		const admins = await this.adminAuthorIds(access, [withAuthor.author]);
 
 		return new CommunityReplyDto(withAuthor, {
-			author: this.communities.toPerson(withAuthor.author),
+			author: this.authorOf(access, withAuthor.author, admins),
 			authorIsAdmin: admins.has(viewerId),
 			hasLiked: false,
 			canDelete: true,
@@ -603,7 +609,7 @@ export class CommunityPostsService {
 		return rows.map(
 			(row) =>
 				new CommunityPostDto(row, {
-					author: this.communities.toPerson(row.author),
+					author: this.authorOf(access, row.author, admins),
 					authorIsAdmin: admins.has(row.authorId),
 					mediaUrl: row.mediaStorageId
 						? this.storage.buildUrl(row.mediaStorageId, 'full')
@@ -618,6 +624,16 @@ export class CommunityPostsService {
 					},
 				}),
 		);
+	}
+
+	private authorOf(
+		access: CommunityAccess,
+		author: User,
+		admins: Set<string>,
+	): CommunityPersonDto {
+		return access.community.isOfficial && admins.has(author.id)
+			? CommunityPersonDto.safetyTeam(access.community.id)
+			: this.communities.toPerson(author);
 	}
 
 	/** In the Safety Community the admins are the platform's own team. */

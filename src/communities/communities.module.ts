@@ -8,6 +8,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { PlatformSettingsModule } from '../platform-settings/platform-settings.module';
 import { Category } from '../reference/entities/category.entity';
 import { StorageModule } from '../storage/storage.module';
+import { CommunityLinksController } from './community-links.controller';
 import { CommunitiesController } from './communities.controller';
 import { CommunitiesService } from './communities.service';
 import { CommunityPostsController } from './community-posts.controller';
@@ -43,7 +44,11 @@ import { Community } from './entities/community.entity';
 		PlatformSettingsModule,
 		StorageModule,
 	],
-	controllers: [CommunitiesController, CommunityPostsController],
+	controllers: [
+		CommunitiesController,
+		CommunityPostsController,
+		CommunityLinksController,
+	],
 	providers: [CommunitiesService, CommunityPostsService],
 	exports: [CommunitiesService, CommunityPostsService],
 })
