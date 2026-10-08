@@ -137,6 +137,24 @@ export const envSchema = z.object({
 	 */
 	PUBLIC_API_URL: optionalSecret,
 
+	/**
+	 * Oldest app version allowed to keep running (e.g. 1.2.0). Older apps show
+	 * a blocking "update required" screen. Unset lets every version through.
+	 */
+	MIN_APP_VERSION: z.preprocess(
+		(value) =>
+			typeof value === 'string' && value.trim() === ''
+				? undefined
+				: value,
+		z
+			.string()
+			.regex(/^\d+\.\d+\.\d+$/, 'Use a version such as 1.2.0')
+			.optional(),
+	),
+	/** Where the update screen sends people. Unset until the listings exist. */
+	APP_STORE_URL: optionalSecret,
+	PLAY_STORE_URL: optionalSecret,
+
 	THROTTLE_TTL_SECONDS: z.coerce.number().int().positive().default(60),
 	THROTTLE_LIMIT: z.coerce.number().int().positive().default(120),
 

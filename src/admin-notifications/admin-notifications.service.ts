@@ -37,6 +37,12 @@ const FEED = `
     FROM "events" e
     JOIN "users" u ON u."id" = e."hostId" AND u."deletedAt" IS NULL
    WHERE e."createdAt" > ${FEED_WINDOW}
+  UNION ALL
+  SELECT 'user_reported:' || r."id", 'user_reported', r."id",
+         r."createdAt", u."fullName", r."reason"::text
+    FROM "user_reports" r
+    JOIN "users" u ON u."id" = r."reportedUserId"
+   WHERE r."createdAt" > ${FEED_WINDOW}
 `;
 
 /** $1 is the admin. */
@@ -137,6 +143,11 @@ function describe(row: FeedRow): Pick<AdminNotificationDto, 'title' | 'body'> {
 			return {
 				title: `Support message from ${row.fullName}`,
 				body: row.detail ?? '',
+			};
+		case AdminNotificationKind.UserReported:
+			return {
+				title: 'Member reported',
+				body: `${row.fullName} was reported for ${(row.detail ?? 'other').replace(/_/g, ' ')}`,
 			};
 		case AdminNotificationKind.EventCreated:
 			return {

@@ -99,6 +99,16 @@ export const paymentsConfig = registerAs('payments', () => {
 	};
 });
 
+export const appReleaseConfig = registerAs('appRelease', () => {
+	const e = env();
+
+	return {
+		minimumVersion: e.MIN_APP_VERSION ?? null,
+		appStoreUrl: e.APP_STORE_URL ?? null,
+		playStoreUrl: e.PLAY_STORE_URL ?? null,
+	};
+});
+
 export const throttleConfig = registerAs('throttle', () => {
 	const e = env();
 
@@ -114,5 +124,6 @@ export const configurations = [
 	pushConfig,
 	externalEventsConfig,
 	paymentsConfig,
+	appReleaseConfig,
 	throttleConfig,
 ];

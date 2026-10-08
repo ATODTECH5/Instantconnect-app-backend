@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 
+import { AppReleaseModule } from './app-release/app-release.module';
 import { AuthModule } from './auth/auth.module';
 import { BlocksModule } from './blocks/blocks.module';
 import { ChatModule } from './chat/chat.module';
@@ -27,6 +28,7 @@ import { PresenceInterceptor } from './presence/presence.interceptor';
 import { PresenceModule } from './presence/presence.module';
 import { ReferenceModule } from './reference/reference.module';
 import { ReferralsModule } from './referrals/referrals.module';
+import { ReportsModule } from './reports/reports.module';
 import { SafetyModule } from './safety/safety.module';
 import { SettingsModule } from './settings/settings.module';
 import { StorageModule } from './storage/storage.module';
@@ -69,6 +71,8 @@ import { PlatformSettingsModule } from './platform-settings/platform-settings.mo
 		AuthModule,
 		SettingsModule,
 		BlocksModule,
+		ReportsModule,
+		AppReleaseModule,
 		ReferralsModule,
 		SupportModule,
 		KycModule,

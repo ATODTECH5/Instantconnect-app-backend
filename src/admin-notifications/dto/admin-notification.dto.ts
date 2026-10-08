@@ -7,10 +7,11 @@ export enum AdminNotificationKind {
 	KycSubmitted = 'kyc_submitted',
 	SupportMessage = 'support_message',
 	EventCreated = 'event_created',
+	UserReported = 'user_reported',
 }
 
 export const NOTIFICATION_ID_PATTERN =
-	/^(kyc_submitted|support_message|event_created):[0-9a-f-]{36}$/;
+	/^(kyc_submitted|support_message|event_created|user_reported):[0-9a-f-]{36}$/;
 
 export class AdminNotificationDto {
 	@ApiProperty({ example: 'kyc_submitted:3f1c…' })
