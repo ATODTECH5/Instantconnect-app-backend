@@ -122,15 +122,55 @@ export class ChatService {
 			.skip(query.offset)
 			.getMany();
 
-		const ids = rows.map((row) => row.conversationId);
-		const [parties, previews, unread, unreadThreads] = await Promise.all([
-			this.partiesFor(viewerId, ids),
-			this.lastMessagesFor(ids),
-			this.unreadCountsFor(viewerId, ids),
+		const [items, unreadThreads] = await Promise.all([
+			this.toConversations(viewerId, rows),
 			this.countUnreadThreads(viewerId),
 		]);
 
-		const items = rows.flatMap((row) => {
+		return new ConversationPageDto(
+			items,
+			new PageInfoDto(total, query),
+			unreadThreads,
+		);
+	}
+
+	/**
+	 * Threads opened from a notification or a shared link may sit beyond the
+	 * first page of the list, so the header cannot rely on the list alone.
+	 */
+	async getConversation(
+		viewerId: string,
+		conversationId: string,
+	): Promise<ConversationResponseDto> {
+		const row = await this.participants.findOne({
+			where: { conversationId, userId: viewerId },
+			relations: { conversation: true },
+		});
+
+		const [item] = row ? await this.toConversations(viewerId, [row]) : [];
+
+		if (!item) {
+			throw new NotFoundException({
+				code: 'CONVERSATION_NOT_FOUND',
+				message: 'That conversation is not available.',
+			});
+		}
+
+		return item;
+	}
+
+	private async toConversations(
+		viewerId: string,
+		rows: ConversationParticipant[],
+	): Promise<ConversationResponseDto[]> {
+		const ids = rows.map((row) => row.conversationId);
+		const [parties, previews, unread] = await Promise.all([
+			this.partiesFor(viewerId, ids),
+			this.lastMessagesFor(ids),
+			this.unreadCountsFor(viewerId, ids),
+		]);
+
+		return rows.flatMap((row) => {
 			const party = parties.get(row.conversationId);
 
 			// A thread whose other party has been deleted has nothing to show.
@@ -155,12 +195,6 @@ export class ChatService {
 				),
 			];
 		});
-
-		return new ConversationPageDto(
-			items,
-			new PageInfoDto(total, query),
-			unreadThreads,
-		);
 	}
 
 	async listMessages(

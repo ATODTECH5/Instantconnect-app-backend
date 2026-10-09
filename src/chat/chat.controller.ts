@@ -25,7 +25,10 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ApiErrorDto } from '../common/dto/api-error.dto';
 import { PaginationQueryDto } from '../common/dto/pagination.dto';
 import { ChatService } from './chat.service';
-import { ConversationPageDto } from './dto/conversation-response.dto';
+import {
+	ConversationPageDto,
+	ConversationResponseDto,
+} from './dto/conversation-response.dto';
 import { ListConversationsQueryDto } from './dto/list-conversations-query.dto';
 import { MessagePageDto, MessageResponseDto } from './dto/message-response.dto';
 import { ReadReceiptDto } from './dto/read-receipt.dto';
@@ -56,6 +59,20 @@ export class ChatController {
 		@Query() query: ListConversationsQueryDto,
 	): Promise<ConversationPageDto> {
 		return this.chat.listConversations(userId, query);
+	}
+
+	@ApiOperation({
+		summary: 'One thread as the list reports it',
+		description:
+			'For a thread reached without the list, such as from a notification.',
+	})
+	@ApiOkResponse({ type: ConversationResponseDto })
+	@Get(':id')
+	async get(
+		@CurrentUser('id') userId: string,
+		@Param('id', ParseUUIDPipe) id: string,
+	): Promise<ConversationResponseDto> {
+		return this.chat.getConversation(userId, id);
 	}
 
 	@ApiOperation({
